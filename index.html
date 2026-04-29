@@ -628,6 +628,23 @@
                         <div class="error-msg">请上传在留卡照片</div>
                     </div>
 
+                    <!-- 4.5. 在留资格（签证类别） -->
+                    <div class="form-group">
+                        <label>在留资格（签证类别） <span class="required">*</span></label>
+                        <select name="visa_type" required>
+                            <option value="">请选择签证类别</option>
+                            <option value="永住者">永住者</option>
+                            <option value="日本人の配偶者等">日本人の配偶者等</option>
+                            <option value="定住者">定住者</option>
+                            <option value="技術・人文知識・国際業務">技術・人文知識・国際業務</option>
+                            <option value="技能">技能</option>
+                            <option value="特定技能">特定技能</option>
+                            <option value="留学（資格外活動許可）">留学（資格外活動許可）</option>
+                            <option value="その他">その他</option>
+                        </select>
+                        <div class="error-msg">请选择在留资格</div>
+                    </div>
+
                     <!-- 5. 驾照类型 -->
                     <div class="form-group">
                         <label>驾照类型 <span class="required">*</span></label>
@@ -910,6 +927,13 @@
                 }
             });
 
+            // Validate select fields
+            const visaSelect = form.querySelector('[name="visa_type"]');
+            if (!visaSelect.value) {
+                visaSelect.closest('.form-group').classList.add('error');
+                hasError = true;
+            }
+
             // Validate conditional fields
             const hireChecked = form.querySelector('[name="hire_experience"]:checked');
             if (hireChecked && hireChecked.value === '有') {
@@ -938,15 +962,47 @@
                 return;
             }
 
-            // Read file as base64
+            // Read file as base64 (with compression)
             function readFileAsBase64(file) {
                 return new Promise((resolve, reject) => {
+                    // If it's an image, compress first
+                    if (!file.type.startsWith('image/')) {
+                        const reader = new FileReader();
+                        reader.onload = function(ev) {
+                            const dataUrl = ev.target.result;
+                            const base64 = dataUrl.split(',')[1];
+                            const type = dataUrl.match(/data:(.*?);/)[1];
+                            resolve({ data: base64, type: type });
+                        };
+                        reader.onerror = reject;
+                        reader.readAsDataURL(file);
+                        return;
+                    }
+                    
+                    // Compress image
+                    const img = new Image();
                     const reader = new FileReader();
                     reader.onload = function(ev) {
-                        const dataUrl = ev.target.result;
-                        const base64 = dataUrl.split(',')[1];
-                        const type = dataUrl.match(/data:(.*?);/)[1];
-                        resolve({ data: base64, type: type });
+                        img.onload = function() {
+                            const canvas = document.createElement('canvas');
+                            const maxW = 1200;
+                            const maxH = 1200;
+                            let w = img.width, h = img.height;
+                            if (w > maxW || h > maxH) {
+                                const ratio = Math.min(maxW / w, maxH / h);
+                                w = Math.round(w * ratio);
+                                h = Math.round(h * ratio);
+                            }
+                            canvas.width = w;
+                            canvas.height = h;
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(img, 0, 0, w, h);
+                            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                            const base64 = dataUrl.split(',')[1];
+                            resolve({ data: base64, type: 'image/jpeg' });
+                        };
+                        img.onerror = reject;
+                        img.src = ev.target.result;
                     };
                     reader.onerror = reject;
                     reader.readAsDataURL(file);
@@ -982,6 +1038,7 @@
                     location: form.querySelector('[name="location"]').value.trim(),
                     motivation: form.querySelector('[name="motivation"]').value.trim(),
                     agree_nda: form.querySelector('[name="nda_agree"]:checked').value,
+                    visa_type: form.querySelector('[name="visa_type"]').value,
                     license_photo: licensePhoto,
                     residence_photo: residencePhoto
                 };
