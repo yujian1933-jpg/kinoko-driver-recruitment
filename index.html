@@ -389,25 +389,33 @@
         .success-page {
             display: none;
             text-align: center;
-            padding: 3rem 1.5rem;
+            padding: 2rem 1rem;
         }
 
         .success-page.show {
             display: block;
         }
 
+        .success-card {
+            background: rgba(255,255,255,0.92);
+            border-radius: 12px;
+            padding: 3rem 1.5rem;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+            border: 1px solid #efe3cc;
+        }
+
         .success-page .check-icon {
             width: 80px;
             height: 80px;
             border-radius: 50%;
-            background: linear-gradient(135deg, #2e7d32, #43a047);
+            background: #8B6914;
             display: flex;
             align-items: center;
             justify-content: center;
             margin: 0 auto 1.5rem;
             font-size: 2.5rem;
             color: #fff;
-            box-shadow: 0 4px 20px rgba(46, 125, 50, 0.3);
+            box-shadow: 0 4px 20px rgba(139, 105, 20, 0.3);
         }
 
         .success-page h2 {
@@ -417,7 +425,7 @@
         }
 
         .success-page p {
-            color: #5a6a7a;
+            color: #1a2a3a;
             font-size: 0.95rem;
             line-height: 1.8;
         }
@@ -841,13 +849,15 @@
 
         <!-- Success Page -->
         <div class="success-page" id="successPage">
-            <div class="check-icon">✓</div>
-            <h2>提交成功！</h2>
-            <p>
-                感谢您的报名！🎉<br>
-                我们已收到您的信息，审核后将通过您填写的联系方式与您取得联系。<br><br>
-                请保持联系方式畅通，祝您顺利！
-            </p>
+            <div class="success-card">
+                <div class="check-icon">✓</div>
+                <h2>提交成功！</h2>
+                <p>
+                    感谢您的报名！🎉<br>
+                    我们已收到您的信息，审核后将通过您填写的联系方式与您取得联系。<br><br>
+                    请保持联系方式畅通，祝您顺利！
+                </p>
+            </div>
         </div>
     </div>
 
