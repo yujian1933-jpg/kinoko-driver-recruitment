@@ -631,19 +631,45 @@
 
                     <!-- 4.5. 在留资格（签证类别） -->
                     <div class="form-group">
-                        <label>在留资格（签证类别） <span class="required">*</span></label>
-                        <select name="visa_type" required>
-                            <option value="">请选择签证类别</option>
-                            <option value="永住者">永住者</option>
-                            <option value="日本人の配偶者等">日本人の配偶者等</option>
-                            <option value="定住者">定住者</option>
-                            <option value="技術・人文知識・国際業務">技術・人文知識・国際業務</option>
-                            <option value="技能">技能</option>
-                            <option value="特定技能">特定技能</option>
-                            <option value="留学（資格外活動許可）">留学（資格外活動許可）</option>
-                            <option value="その他">その他</option>
-                        </select>
-                        <div class="error-msg">请选择在留资格</div>
+                        <label>在留資格 <span class="required">*</span></label>
+                        <div class="radio-group">
+                            <div class="radio-option"><input type="radio" name="visa_type" id="vt1" value="永住者"><label for="vt1">永住者</label></div>
+                            <div class="radio-option"><input type="radio" name="visa_type" id="vt2" value="定住者"><label for="vt2">定住者</label></div>
+                            <div class="radio-option"><input type="radio" name="visa_type" id="vt3" value="日本人の配偶者等"><label for="vt3">日本人の配偶者等</label></div>
+                            <div class="radio-option"><input type="radio" name="visa_type" id="vt4" value="永住者の配偶者等"><label for="vt4">永住者の配偶者等</label></div>
+                            <div class="radio-option"><input type="radio" name="visa_type" id="vt5" value="高度専門職"><label for="vt5">高度専門職</label></div>
+                            <div class="radio-option"><input type="radio" name="visa_type" id="vt6" value="経営・管理"><label for="vt6">経営・管理</label></div>
+                            <div class="radio-option"><input type="radio" name="visa_type" id="vt7" value="技術・人文知識・国際業務"><label for="vt7">技術・人文知識・国際業務</label></div>
+                            <div class="radio-option"><input type="radio" name="visa_type" id="vt8" value="技能"><label for="vt8">技能</label></div>
+                            <div class="radio-option"><input type="radio" name="visa_type" id="vt9" value="特定技能1号"><label for="vt9">特定技能1号</label></div>
+                            <div class="radio-option"><input type="radio" name="visa_type" id="vt10" value="特定技能2号"><label for="vt10">特定技能2号</label></div>
+                            <div class="radio-option"><input type="radio" name="visa_type" id="vt11" value="技能実習"><label for="vt11">技能実習</label></div>
+                            <div class="radio-option"><input type="radio" name="visa_type" id="vt12" value="留学"><label for="vt12">留学</label></div>
+                            <div class="radio-option"><input type="radio" name="visa_type" id="vt13" value="家族滞在"><label for="vt13">家族滞在</label></div>
+                            <div class="radio-option"><input type="radio" name="visa_type" id="vt14" value="特定活動"><label for="vt14">特定活動</label></div>
+                            <div class="radio-option"><input type="radio" name="visa_type" id="vt15" value="その他"><label for="vt15">その他</label></div>
+                        </div>
+                        <div class="error-msg">在留資格を選択してください</div>
+                    </div>
+
+                    <!-- 4.6. 签证工作时长限制 -->
+                    <div class="form-group">
+                        <label>就労時間の制限がありますか？ <span class="required">*</span></label>
+                        <div class="radio-group">
+                            <div class="radio-option">
+                                <input type="radio" name="work_limit" id="wl1" value="有">
+                                <label for="wl1">有</label>
+                            </div>
+                            <div class="radio-option">
+                                <input type="radio" name="work_limit" id="wl2" value="無">
+                                <label for="wl2">無</label>
+                            </div>
+                        </div>
+                        <div class="conditional-field" id="work_limit_field">
+                            <label class="sub-label">制限時間を記入してください</label>
+                            <input type="text" name="work_limit_hours" placeholder="例：週28時間以内、週40時間以内など">
+                        </div>
+                        <div class="error-msg">就労時間制限の有無を選択してください</div>
                     </div>
 
                     <!-- 5. 驾照类型 -->
@@ -888,6 +914,19 @@
             });
         });
 
+        const workLimitRadios = document.querySelectorAll('input[name="work_limit"]');
+        const workLimitField = document.getElementById('work_limit_field');
+        workLimitRadios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                if (this.value === '有') {
+                    workLimitField.classList.add('visible');
+                } else {
+                    workLimitField.classList.remove('visible');
+                    form.querySelector('[name="work_limit_hours"]').value = '';
+                }
+            });
+        });
+
         form.addEventListener('submit', async function(e) {
             e.preventDefault();
 
@@ -918,7 +957,7 @@
             }
 
             // Validate radio groups
-            const requiredRadios = ['license_type', 'driving_years', 'japanese_level', 'hire_experience', 'event_experience', 'nda_agree'];
+            const requiredRadios = ['visa_type', 'work_limit', 'license_type', 'driving_years', 'japanese_level', 'hire_experience', 'event_experience', 'nda_agree'];
             requiredRadios.forEach(name => {
                 const checked = form.querySelector(`[name="${name}"]:checked`);
                 if (!checked) {
@@ -928,12 +967,7 @@
                 }
             });
 
-            // Validate select fields
-            const visaSelect = form.querySelector('[name="visa_type"]');
-            if (!visaSelect.value) {
-                visaSelect.closest('.form-group').classList.add('error');
-                hasError = true;
-            }
+
 
             // Validate conditional fields
             const hireChecked = form.querySelector('[name="hire_experience"]:checked');
@@ -950,6 +984,15 @@
                 const detailInput = form.querySelector('[name="event_detail"]');
                 if (!detailInput.value.trim()) {
                     detailInput.closest('.form-group').classList.add('error');
+                    hasError = true;
+                }
+            }
+
+            const workLimitChecked = form.querySelector('[name="work_limit"]:checked');
+            if (workLimitChecked && workLimitChecked.value === '有') {
+                const hoursInput = form.querySelector('[name="work_limit_hours"]');
+                if (!hoursInput.value.trim()) {
+                    hoursInput.closest('.form-group').classList.add('error');
                     hasError = true;
                 }
             }
@@ -1039,7 +1082,9 @@
                     location: form.querySelector('[name="location"]').value.trim(),
                     motivation: form.querySelector('[name="motivation"]').value.trim(),
                     agree_nda: form.querySelector('[name="nda_agree"]:checked').value,
-                    visa_type: form.querySelector('[name="visa_type"]').value,
+                    visa_type: form.querySelector('[name="visa_type"]:checked').value,
+                    work_limit: form.querySelector('[name="work_limit"]:checked').value,
+                    work_limit_hours: (form.querySelector('[name="work_limit"]:checked').value === '有') ? form.querySelector('[name="work_limit_hours"]').value.trim() : '',
                     license_photo: licensePhoto,
                     residence_photo: residencePhoto
                 };
