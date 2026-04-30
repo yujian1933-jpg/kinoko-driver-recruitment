@@ -109,7 +109,8 @@
             color: #1a2a3a;
             margin-bottom: 0.4rem;
         }
-        .form-group input[type="text"] {
+        .form-group input[type="text"],
+        .form-group input[type="email"] {
             width: 100%;
             padding: 0.7rem 0.9rem;
             border: 1.5px solid #e0dfd8;
@@ -273,17 +274,12 @@
 
         <div class="form-group">
             <label>签署人姓名（与证件一致）/ 署名者氏名</label>
-            <input type="text" id="signName" placeholder="请输入您的姓名 / 氏名を入力してください" maxlength="50">
-        </div>
-
-        <div class="form-group">
-            <label>联系方式（手机或邮箱）/ 連絡先</label>
-            <input type="text" id="signContact" placeholder="手机号码或邮箱地址 / 電話番号またはメール" maxlength="100">
+            <input type="text" id="signName" placeholder="请输入您的姓名 / 氏名を入力してください" maxlength="50" required>
         </div>
 
         <div class="form-group">
             <label>电子邮箱（用于接收签署回执）/ Eメール（控え受信用）</label>
-            <input type="email" id="signEmail" placeholder="yourname@example.com" maxlength="100">
+            <input type="email" id="signEmail" placeholder="yourname@example.com" maxlength="100" required>
         </div>
 
         <div class="form-group">
