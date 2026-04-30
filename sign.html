@@ -110,7 +110,8 @@
             margin-bottom: 0.4rem;
         }
         .form-group input[type="text"],
-        .form-group input[type="email"] {
+        .form-group input[type="email"],
+        .form-group input[type="tel"] {
             width: 100%;
             padding: 0.7rem 0.9rem;
             border: 1.5px solid #e0dfd8;
@@ -275,6 +276,11 @@
         <div class="form-group">
             <label>签署人姓名（与证件一致）/ 署名者氏名</label>
             <input type="text" id="signName" placeholder="请输入您的姓名 / 氏名を入力してください" maxlength="50" required>
+        </div>
+
+        <div class="form-group">
+            <label>电话号码 / 電話番号</label>
+            <input type="tel" id="signPhone" placeholder="090-xxxx-xxxx" maxlength="20" required>
         </div>
 
         <div class="form-group">
@@ -470,6 +476,7 @@ function clearSignature() {
 // ============ Signing Logic ============
 async function handleSign() {
     const name = document.getElementById('signName').value.trim();
+    const phone = document.getElementById('signPhone').value.trim();
     const email = document.getElementById('signEmail').value.trim();
     const agreed = document.getElementById('agreeCheck').checked;
     const errorEl = document.getElementById('signError');
@@ -477,6 +484,7 @@ async function handleSign() {
 
     errorEl.classList.remove('show');
     if (!name) { errorEl.textContent = '请输入姓名 / 氏名を入力してください'; errorEl.classList.add('show'); return; }
+    if (!phone) { errorEl.textContent = '请输入电话号码 / 電話番号を入力してください'; errorEl.classList.add('show'); return; }
     if (!email) { errorEl.textContent = '请输入邮箱 / メールアドレスを入力してください'; errorEl.classList.add('show'); return; }
     if (!/^\S+@\S+\.\S+$/.test(email)) { errorEl.textContent = '邮箱格式不正确 / メールアドレスが正しくありません'; errorEl.classList.add('show'); return; }
     if (!agreed) { errorEl.textContent = '请勾选同意条款 / 条項に同意してください'; errorEl.classList.add('show'); return; }
@@ -492,6 +500,7 @@ async function handleSign() {
             type: 'signature',
             contract_type: 'driver_agreement_nda',
             name: name,
+            phone: phone,
             email: email,
             agreed_at: new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }),
             signature_image: signatureImage
