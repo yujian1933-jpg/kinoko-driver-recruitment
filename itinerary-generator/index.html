@@ -72,6 +72,20 @@ body::before {
 .editor { flex: 1; overflow-y: auto; padding: 1.5rem 2rem; border-right: 1px solid var(--border); }
 .preview { flex: 1; overflow-y: auto; padding: 1.5rem 2rem; background: #faf9f5; }
 
+/* Tour number (internal) */
+.tour-number { margin-bottom: 1rem; padding: 0.5rem 0.8rem; background: #f9f6ec; border: 1px solid var(--border); border-radius: 6px; display: flex; align-items: center; gap: 0.6rem; }
+.tour-number .badge { background: #6a7a8a; color: #fff; font-size: 0.65rem; padding: 0.15rem 0.45rem; border-radius: 3px; white-space: nowrap; }
+.tour-number input { flex: 1; border: none; background: transparent; font-size: 0.9rem; font-family: inherit; padding: 0.2rem 0; }
+.tour-number input:focus { outline: none; }
+.tour-number input::placeholder { color: #b0a890; }
+
+/* Weekday & Holiday */
+.day-weekday { font-size: 0.72rem; padding: 0.15rem 0.4rem; border-radius: 3px; white-space: nowrap; }
+.day-weekday.sun { background: #fce4e4; color: #c0392b; }
+.day-weekday.sat { background: #e4eefc; color: #2471a3; }
+.day-weekday.weekday { background: #f0f0f0; color: #555; }
+.day-holiday { font-size: 0.68rem; padding: 0.15rem 0.45rem; border-radius: 3px; background: #fff3e0; color: #d35400; white-space: nowrap; margin-left: 0.25rem; }
+
 /* Customer branding */
 .customer-brand { margin-bottom: 1.5rem; }
 .customer-brand label { font-size: 0.78rem; color: var(--gray); display: block; margin-bottom: 0.3rem; }
@@ -256,6 +270,12 @@ body::before {
 <div class="main">
     <!-- Editor Panel -->
     <div class="editor" id="editorPanel">
+        <!-- Tour Number (internal only) -->
+        <div class="tour-number">
+            <span class="badge">内部用</span>
+            <input type="text" id="tourNumber" placeholder="ツアー番号 / Tour Number" oninput="updatePreview()">
+        </div>
+
         <!-- Customer Branding -->
         <div class="customer-brand">
             <input type="text" id="clientName" placeholder="客户公司名 / Client Company Name" oninput="updatePreview()">
@@ -328,11 +348,13 @@ function renderEditor() {
     const el = document.getElementById('dayList');
     el.innerHTML = days.map((d, i) => {
         const activeTab = d._activeTab || 'client';
+        const wi = getWeekdayInfo(d.date);
         return `
         <div class="day-card">
             <div class="day-header">
                 <div class="day-number">${i + 1}</div>
                 <input class="day-date" placeholder="${t('date')}" value="${esc(d.date)}" oninput="updateDay(${i},'date',this.value)">
+                ${wi.html}
                 <input class="day-city" placeholder="${t('city')}" value="${esc(d.city)}" oninput="updateDay(${i},'city',this.value)">
                 <button class="day-delete" onclick="deleteDay(${i})" title="删除">✕</button>
             </div>
@@ -360,13 +382,17 @@ function updatePreview() {
 
     // Days
     const daysEl = document.getElementById('previewDays');
-    daysEl.innerHTML = days.map((d, i) => `
+    daysEl.innerHTML = days.map((d, i) => {
+        const wi = getWeekdayInfo(d.date);
+        return `
         <div class="preview-day">
-            <div class="day-label">Day ${i + 1}${d.date ? ' — ' + d.date : ''}</div>
+            <div class="day-label">Day ${i + 1}${d.date ? ' — ' + d.date : ''}${wi.weekdayText ? ' (' + wi.weekdayText + ')' : ''}${wi.holidayName ? ' 🎌 ' + wi.holidayName : ''}</div>
             ${d.city ? `<div class="day-location">📍 ${d.city}</div>` : ''}
+            ${wi.holidayName ? `<div class="day-holiday" style="display:inline-block;margin-top:0.2rem;">⚠️ ${wi.holidayName} — 多くの施設が休業の場合があります</div>` : ''}
             <div class="day-text">${formatText(d.text)}</div>
         </div>
-    `).join('');
+        `;
+    }).join('');
 
     // Footer
     document.querySelector('.kinoko-footer').textContent = t('footer');
@@ -433,13 +459,18 @@ function exportWord() {
 
 function generateExportHTML() {
     const clientName = document.getElementById('clientName').value;
-    const daysHTML = days.map((d, i) => `
+    const tourNum = document.getElementById('tourNumber').value;
+    const daysHTML = days.map((d, i) => {
+        const wi = getWeekdayInfo(d.date);
+        return `
         <div style="margin-bottom:1.5rem; padding-left:1.5rem; border-left:2px solid #C9A96E;">
-            <div style="font-size:0.9rem; color:#8B6914; font-weight:600;">Day ${i + 1}${d.date ? ' — ' + d.date : ''}</div>
+            <div style="font-size:0.9rem; color:#8B6914; font-weight:600;">Day ${i + 1}${d.date ? ' — ' + d.date : ''}${wi.weekdayText ? ' (' + wi.weekdayText + ')' : ''}${wi.holidayName ? ' 🎌 ' + wi.holidayName : ''}</div>
             ${d.city ? `<div style="font-size:0.82rem; color:#6a7a8a;">📍 ${d.city}</div>` : ''}
+            ${wi.holidayName ? `<div style="font-size:0.7rem; color:#d35400; margin-top:0.2rem;">⚠️ ${wi.holidayName} — 多くの施設が休業の場合があります</div>` : ''}
             <div style="font-size:0.88rem; line-height:1.8; color:#1a2a3a; margin-top:0.3rem;">${formatText(d.text)}</div>
         </div>
-    `).join('');
+        `;
+    }).join('');
 
     return `<!DOCTYPE html><html lang="${currentLanguage}"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>行程 — ${escHtml(clientName)}</title>
 <style>
@@ -459,6 +490,96 @@ ${daysHTML}
 }
 
 function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// === Japanese Holidays 2026 ===
+const JP_HOLIDAYS = {
+    '2026-01-01': '元日',
+    '2026-01-12': '成人の日',
+    '2026-02-11': '建国記念の日',
+    '2026-02-23': '天皇誕生日',
+    '2026-03-20': '春分の日',
+    '2026-04-29': '昭和の日',
+    '2026-05-03': '憲法記念日',
+    '2026-05-04': 'みどりの日',
+    '2026-05-05': 'こどもの日',
+    '2026-05-06': '振替休日',
+    '2026-07-20': '海の日',
+    '2026-08-11': '山の日',
+    '2026-09-21': '敬老の日',
+    '2026-09-22': '振替休日',
+    '2026-09-23': '秋分の日',
+    '2026-10-12': 'スポーツの日',
+    '2026-11-03': '文化の日',
+    '2026-11-23': '勤労感謝の日',
+    '2027-01-01': '元日',
+    '2027-01-11': '成人の日',
+    '2027-02-11': '建国記念の日',
+    '2027-02-23': '天皇誕生日',
+    '2027-03-21': '春分の日',
+    '2027-04-29': '昭和の日',
+    '2027-05-03': '憲法記念日',
+    '2027-05-04': 'みどりの日',
+    '2027-05-05': 'こどもの日',
+    '2027-07-19': '海の日',
+    '2027-08-11': '山の日',
+    '2027-09-20': '敬老の日',
+    '2027-09-23': '秋分の日',
+    '2027-10-11': 'スポーツの日',
+    '2027-11-03': '文化の日',
+    '2027-11-23': '勤労感謝の日'
+};
+
+const WEEKDAYS_JP = ['日', '月', '火', '水', '木', '金', '土'];
+const WEEKDAYS_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const WEEKDAYS_FR = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'];
+const WEEKDAYS_TW = ['日', '一', '二', '三', '四', '五', '六'];
+
+function getWeekdayInfo(dateStr) {
+    const result = { html: '', weekdayText: '', holidayName: '' };
+    if (!dateStr || !dateStr.trim()) return result;
+
+    // Try to parse various date formats
+    let y, m, d;
+    // Support YYYY/MM/DD, YYYY-MM-DD, MM/DD
+    const parts = dateStr.split(/[\/\-\.]/);
+    if (parts.length === 3) {
+        y = parseInt(parts[0]);
+        m = parseInt(parts[1]);
+        d = parseInt(parts[2]);
+    } else if (parts.length === 2) {
+        // MM/DD -> assume current year
+        const now = new Date();
+        y = now.getFullYear();
+        m = parseInt(parts[0]);
+        d = parseInt(parts[1]);
+    } else {
+        return result;
+    }
+
+    if (isNaN(y) || isNaN(m) || isNaN(d) || m < 1 || m > 12 || d < 1 || d > 31) return result;
+
+    const dt = new Date(y, m - 1, d);
+    if (dt.getMonth() !== m - 1) return result; // invalid date
+
+    const dayOfWeek = dt.getDay();
+    const weekdayJP = WEEKDAYS_JP[dayOfWeek];
+
+    let cssClass = 'weekday';
+    if (dayOfWeek === 0) cssClass = 'sun';
+    else if (dayOfWeek === 6) cssClass = 'sat';
+
+    result.weekdayText = weekdayJP;
+    result.html = `<span class="day-weekday ${cssClass}">${weekdayJP}</span>`;
+
+    // Check holiday
+    const dateKey = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    if (JP_HOLIDAYS[dateKey]) {
+        result.holidayName = JP_HOLIDAYS[dateKey];
+        result.html += `<span class="day-holiday">🎌 ${result.holidayName}</span>`;
+    }
+
+    return result;
+}
 
 // === Init ===
 function init() {
