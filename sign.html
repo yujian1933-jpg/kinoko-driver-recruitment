@@ -143,6 +143,45 @@
             cursor: pointer;
         }
 
+        /* Signature Pad */
+        .sig-pad-wrap {
+            position: relative;
+            border: 1.5px solid #e0dfd8;
+            border-radius: 8px;
+            background: #fff;
+            overflow: hidden;
+        }
+        .sig-pad-wrap canvas {
+            display: block;
+            width: 100%;
+            height: 160px;
+            cursor: crosshair;
+            touch-action: none;
+        }
+        .sig-hint {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            color: #c0c0c0;
+            font-size: 0.9rem;
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+        .sig-hint.hidden { opacity: 0; }
+        .sig-actions {
+            text-align: right;
+            margin-top: 0.3rem;
+        }
+        .sig-actions button {
+            background: none;
+            border: none;
+            color: #8a8a8a;
+            font-size: 0.78rem;
+            cursor: pointer;
+            padding: 0.2rem 0.5rem;
+        }
+        .sig-actions button:hover { color: #5a6a7a; }
+
         .submit-btn {
             display: block;
             width: 100%;
@@ -242,6 +281,22 @@
             <input type="text" id="signContact" placeholder="手机号码或邮箱地址 / 電話番号またはメール" maxlength="100">
         </div>
 
+        <div class="form-group">
+            <label>电子邮箱（用于接收签署回执）/ Eメール（控え受信用）</label>
+            <input type="email" id="signEmail" placeholder="yourname@example.com" maxlength="100">
+        </div>
+
+        <div class="form-group">
+            <label>手写签名 / 手書き署名</label>
+            <div class="sig-pad-wrap">
+                <canvas id="sigCanvas"></canvas>
+                <div class="sig-hint" id="sigHint">在此处签名</div>
+            </div>
+            <div class="sig-actions">
+                <button type="button" onclick="clearSignature()">清除 / クリア</button>
+            </div>
+        </div>
+
         <div class="checkbox-group">
             <input type="checkbox" id="agreeCheck">
             <label for="agreeCheck">
@@ -267,10 +322,11 @@
         <h2>签署完成</h2>
         <p>
             感谢您的签署！<br>
-            您的确认记录已保存。如有疑问，请联系 Kinoko Club Concierge。
+            回执已发送至您的邮箱，请查收。<br>
+            如有疑问，请联系 Kinoko Club Concierge。
         </p>
         <p style="font-size:0.8rem;color:#8a8a8a;margin-top:0.8rem;">
-            署名が完了しました。ご協力ありがとうございます。<br>
+            署名が完了しました。控えをメールにて送信しました。<br>
             ご不明な点がございましたら、Kinoko Club Concierge までお問い合わせください。
         </p>
     </div>
@@ -370,19 +426,67 @@ const contract2Text = `
 document.getElementById('contractText1').textContent = contract1Text.trim();
 document.getElementById('contractText2').textContent = contract2Text.trim();
 
+// ============ Signature Canvas ============
+const canvas = document.getElementById('sigCanvas');
+const ctx = canvas.getContext('2d');
+const hint = document.getElementById('sigHint');
+let drawing = false;
+let hasDrawn = false;
+
+function resizeCanvas() {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = rect.width * 2;
+    canvas.height = 160 * 2;
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#1a2a3a';
+}
+resizeCanvas();
+window.addEventListener('resize', () => {
+    if (!hasDrawn) resizeCanvas();
+});
+
+function getPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+}
+
+canvas.addEventListener('mousedown', e => { e.preventDefault(); drawing = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); });
+canvas.addEventListener('mousemove', e => { if (!drawing) return; e.preventDefault(); hint.classList.add('hidden'); hasDrawn = true; const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); });
+canvas.addEventListener('mouseup', () => { drawing = false; });
+canvas.addEventListener('mouseleave', () => { drawing = false; });
+canvas.addEventListener('touchstart', e => { e.preventDefault(); drawing = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); });
+canvas.addEventListener('touchmove', e => { if (!drawing) return; e.preventDefault(); hint.classList.add('hidden'); hasDrawn = true; const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); });
+canvas.addEventListener('touchend', () => { drawing = false; });
+
+function clearSignature() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    hasDrawn = false;
+    hint.classList.remove('hidden');
+    resizeCanvas();
+}
+
 // ============ Signing Logic ============
 async function handleSign() {
     const name = document.getElementById('signName').value.trim();
-    const contact = document.getElementById('signContact').value.trim();
+    const email = document.getElementById('signEmail').value.trim();
     const agreed = document.getElementById('agreeCheck').checked;
     const errorEl = document.getElementById('signError');
     const btn = document.getElementById('submitBtn');
 
-    // Validation
     errorEl.classList.remove('show');
     if (!name) { errorEl.textContent = '请输入姓名 / 氏名を入力してください'; errorEl.classList.add('show'); return; }
-    if (!contact) { errorEl.textContent = '请输入联系方式 / 連絡先を入力してください'; errorEl.classList.add('show'); return; }
+    if (!email) { errorEl.textContent = '请输入邮箱 / メールアドレスを入力してください'; errorEl.classList.add('show'); return; }
+    if (!/^\S+@\S+\.\S+$/.test(email)) { errorEl.textContent = '邮箱格式不正确 / メールアドレスが正しくありません'; errorEl.classList.add('show'); return; }
     if (!agreed) { errorEl.textContent = '请勾选同意条款 / 条項に同意してください'; errorEl.classList.add('show'); return; }
+    if (!hasDrawn) { errorEl.textContent = '请在签名区手写签名 / 署名欄に手書きで署名してください'; errorEl.classList.add('show'); return; }
+
+    const signatureImage = canvas.toDataURL('image/png');
 
     btn.disabled = true;
     btn.textContent = '提交中...';
@@ -392,9 +496,9 @@ async function handleSign() {
             type: 'signature',
             contract_type: 'driver_agreement_nda',
             name: name,
-            contact: contact,
+            email: email,
             agreed_at: new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }),
-            ip: '(client-side record)'
+            signature_image: signatureImage
         };
 
         const response = await fetch('__SCRIPT_URL__', {
@@ -405,7 +509,6 @@ async function handleSign() {
 
         if (!response.ok) throw new Error('Server returned ' + response.status);
 
-        // Success
         document.getElementById('mainContent').style.display = 'none';
         document.getElementById('successPage').classList.add('show');
         window.scrollTo({ top: 0, behavior: 'smooth' });
