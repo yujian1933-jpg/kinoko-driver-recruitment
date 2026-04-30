@@ -476,6 +476,14 @@
                 font-size: 0.8rem;
             }
         }
+
+        /* Desktop: prevent background stretch */
+        @media (min-width: 769px) {
+            body {
+                background-size: auto 100vh;
+                background-position: center top;
+            }
+        }
     
         .conditional-field {
             max-height: 0;
