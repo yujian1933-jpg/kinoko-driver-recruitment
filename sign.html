@@ -506,7 +506,7 @@ async function handleSign() {
             signature_image: signatureImage
         };
 
-        const response = await fetch('__SCRIPT_URL__', {
+        const response = await fetch('https://script.google.com/macros/s/AKfycbxDFoyR9M4Xl7ptUgf3FVbjFmSi1d9_PQjyQ1wAWdnmB9_LGRTJyj-8UkesMq-veiICMA/exec', {
             method: 'POST',
             body: JSON.stringify(payload),
             headers: { 'Content-Type': 'text/plain' }
