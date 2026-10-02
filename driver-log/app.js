@@ -148,7 +148,7 @@ function submitBlock() {
 function blockers() {
   const ds = days(), out = [];
   const miss = ds.filter((d) => { const e = entryOf(d); return !isRest(e) && (!e || e.incomplete); });
-  if (miss.length) out.push(`有 ${miss.length} 天工时没填完：${miss.slice(0, 8).map((d) => label(d).split(' ')[0]).join('、')}${miss.length > 8 ? '等' : ''}（没有出车的日子，请在当天点“这一天没有出车”）`);
+  if (miss.length) out.push(`有 ${miss.length} 天工时没填完：${miss.slice(0, 8).map((d) => label(d).split(' ')[0]).join('、')}${miss.length > 8 ? '等' : ''}（没有出车的日子，请在当天点“本日未出车”）`);
   if (!sheets.length) out.push('工时签字凭证照片还没有上传');
   const nr = expenses.filter((x) => x.incomplete).length;
   if (nr) out.push(`有 ${nr} 笔垫付缺票据照片`);
@@ -185,7 +185,7 @@ function render() {
     const nr = expenses.filter((x) => x.incomplete).length;
     const ok = (b, t) => `<div class="chk ${b ? 'ok' : 'no'}"><span>${b ? '✓' : '✗'}</span><div>${t}</div></div>`;
     h += `<div class="progress"><b>提交前核对</b>
-      ${ok(!missD.length, `工时：已填 ${done} / ${ds.length} 天${missD.length ? `<small>未填：${missD.slice(0, 8).map((d) => label(d).split(' ')[0]).join('、')}${missD.length > 8 ? ' 等' : ''}。没有出车的日子，请在当天点“这一天没有出车”。</small>` : ''}`)}
+      ${ok(!missD.length, `工时：已填 ${done} / ${ds.length} 天${missD.length ? `<small>没有出车的日子，请在当天点“本日未出车”。</small>` : ''}`)}
       ${ok(sheets.length > 0, `签字凭证照片：${sheets.length ? `已传 ${sheets.length} 张` : '尚未上传<small>请回到“每日工时”页最底部上传。</small>'}`)}
       ${ok(!nr, `垫付：${expenses.length} 笔，合计 ¥${yen.toLocaleString()}${nr ? `<small>有 ${nr} 笔缺票据照片。</small>` : ''}`)}</div>` + submitBlock();
   }
@@ -223,19 +223,19 @@ function workSheet(date) {
   if (e.status === 'approved') { ddel('open'); return toast('这一天已确认，不能再改', true); }
   const dk = 'w:' + date, dr = dget(dk);
   const v = dr || { st: e.startTime || '', en: e.endTime || '', nt: e.note || '' };
-  const s = sheet(`<h2>${label(date)}</h2><div class="note">出库到归库的全部时间（含迎车、回送）；超过10小时为超时。<br>带 <span class="req">*</span> 的为必填，没填完无法最终提交。没有出车的日子，请点“这一天没有出车”。</div>
+  const s = sheet(`<h2>${label(date)}</h2><div class="note">出库到归库的全部时间（含迎车、回送）；超过10小时为超时。<br>带 <span class="req">*</span> 的为必填，没填完无法最终提交。没有出车的日子，请点“本日未出车”。</div>
     ${dr ? '<div class="restored">已恢复你上次没来得及保存的内容，请检查后点“保存”。</div>' : ''}
     <div class="row"><div><label>出库时间 <span class="req">*</span></label><input type="time" id="st" value="${esc(v.st)}"></div><div><label>归库时间 <span class="req">*</span></label><input type="time" id="en" value="${esc(v.en)}"></div></div>
     <div id="calc" class="calc" hidden></div>
     <label>备注</label><input id="nt" maxlength="200" value="${esc(v.nt)}">
-    <button class="btn" id="save">保存</button><button class="btn restbtn" id="rest">这一天没有出车（记为休息）</button><button class="btn ghost" id="cancel">取消（不保存本次修改）</button>`, { k: 'w', d: date });
+    <button class="btn" id="save">保存</button><button class="btn restbtn" id="rest">本日未出车</button><button class="btn ghost" id="cancel">取消（不保存本次修改）</button>`, { k: 'w', d: date });
   const keep = () => dset(dk, { st: $('#st', s).value, en: $('#en', s).value, nt: $('#nt', s).value });
   const upd = () => { const m = calc($('#st', s).value, $('#en', s).value), c = $('#calc', s);
     if (m == null) return c.hidden = true; c.hidden = false; const o = Math.max(0, m - OT);
     c.className = 'calc' + (o ? ' over' : ''); c.textContent = `工作 ${hm(m)}` + (o ? `，超时 ${hm(o)}` : '，未超时') + ($('#en', s).value <= $('#st', s).value ? '（已按过了午夜计算）' : ''); };
   $('#st', s).oninput = $('#en', s).oninput = () => { upd(); keep(); }; $('#nt', s).oninput = keep; upd();
   $('#cancel', s).onclick = () => { ddel(dk); s.remove(); };
-  $('#rest', s).onclick = () => { if (!confirm('这一天没有出车，记为休息？\n（已填的出库/归库时间会清空）')) return; $('#st', s).value = ''; $('#en', s).value = ''; $('#nt', s).value = '休息'; $('#save', s).click(); };
+  $('#rest', s).onclick = () => { if (!confirm('确认本日未出车？\n已填的出库、归库时间将清空。')) return; $('#st', s).value = ''; $('#en', s).value = ''; $('#nt', s).value = '休息'; $('#save', s).click(); };
   $('#save', s).onclick = async () => {
     const btn = $('#save', s), st = $('#st', s).value, en = $('#en', s).value;
     if (!!st !== !!en && !confirm('只填了一头的时间，会标记成“待补”。继续保存？')) return;
