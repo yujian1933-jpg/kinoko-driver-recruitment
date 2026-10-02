@@ -71,3 +71,5 @@ input,select,textarea{width:100%;padding:12px;border:1px solid var(--line);borde
 .chk{display:flex;gap:8px;align-items:flex-start;margin-top:10px;line-height:1.5}.chk>span{flex:none;width:20px;height:20px;border-radius:50%;text-align:center;font-size:13px;line-height:20px;color:#fff;margin-top:1px}
 .chk.ok>span{background:#2e7d4f}.chk.no>span{background:#c0392b}.chk small{display:block;color:#c0392b;font-size:13px;margin-top:2px}
 .submitbox{margin-top:14px}
+.toast{top:auto;bottom:calc(28px + env(safe-area-inset-bottom));background:#6b4f10;color:#fdf8ee;padding:9px 18px;border-radius:999px;font-size:14px;box-shadow:0 6px 18px rgba(60,40,5,.28);text-align:center;white-space:nowrap}
+.toast.err{background:#a8432f;white-space:normal;border-radius:14px}
