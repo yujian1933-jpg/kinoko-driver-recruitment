@@ -64,7 +64,7 @@ async function home(){
  $('#csv').onclick=async()=>{try{const r=(await api('/api/entries')).records.filter(real);
   const head=['日期','出库时间','归库时间','是否跨天','工作时长','超时时长','工作分钟数','超时分钟数','备注','核对状态','信息是否完整'];
   const sheets=ds.map(d=>{const L=r.filter(e=>e.driverId===d.id).sort((x,y)=>x.date.localeCompare(y.date));
-   const rows=L.map(e=>[lab(e.date),e.startTime||'',e.endTime||'',e.nextDay?'是':'否',e.minutes==null?'':hm(e.minutes),e.overtimeMinutes==null?'':hm(e.overtimeMinutes),e.minutes==null?'':e.minutes,e.overtimeMinutes==null?'':e.overtimeMinutes,e.note,stz[e.status]||e.status,e.incomplete?'缺'+(e.missing||[]).map(m=>m==='startTime'?'出库时间':'归库时间').join('、'):'完整']);
+   const rows=L.map(e=>[lab(e.date),e.startTime||'',e.endTime||'',e.nextDay?'是':'否',e.minutes==null?'':hm(e.minutes),e.overtimeMinutes==null?'':hm(e.overtimeMinutes),e.minutes==null?'':e.minutes,e.overtimeMinutes==null?'':e.overtimeMinutes,e.note,stz[e.status]||e.status,(!e.startTime&&!e.endTime&&/^休息/.test(e.note||''))?'休息（无需填写）':e.incomplete?'缺'+(e.missing||[]).map(m=>m==='startTime'?'出库时间':'归库时间').join('、'):'完整']);
    const tm=L.reduce((s,e)=>s+(e.minutes||0),0),to=L.reduce((s,e)=>s+(e.overtimeMinutes||0),0);
    return{name:d.name,head,rows,total:['合计（'+L.length+' 天）','','','',hm(tm),hm(to),tm,to,'','','']}});
   save(buildXlsx(sheets),'司机工时明细.xlsx')}catch(e){toast(e.message)}};
