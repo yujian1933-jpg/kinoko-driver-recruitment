@@ -98,15 +98,24 @@ function entryState(e) {
 }
 const fmtTime = (iso) => { const d = new Date(new Date(iso).getTime() + 9 * 3600e3); return `${d.getUTCMonth() + 1}月${d.getUTCDate()}日 ${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`; };
 function submitBlock() {
+  const bl = blockers();
   return (submittedAt ? `<div class="done">✅ 已提交<small>提交时间：${fmtTime(submittedAt)}。提交后如有修改，请在修改后点击下方“更新提交”。</small></div>` : '')
-    + `<div class="submitbox"><button class="btn" id="submit">${submittedAt ? '更新提交' : '提交'}</button><div class="note" style="text-align:center">全部填写并上传完毕后，请点击“提交”。</div></div>`;
+    + (bl.length ? `<div class="blockers"><b>还不能提交，请先补完：</b>${bl.map((t) => `<div>• ${esc(t)}</div>`).join('')}</div>` : '')
+    + `<div class="submitbox"><button class="btn" id="submit" ${bl.length ? 'disabled' : ''}>${submittedAt ? '更新提交' : '提交'}</button><div class="note" style="text-align:center">${bl.length ? '带 * 的必填项和照片都补完后，才能提交。' : '全部内容已填完，可以提交。'}</div></div>`;
+}
+function blockers() {
+  const ds = days(), out = [];
+  const miss = ds.filter((d) => { const e = entryOf(d); return !isRest(e) && (!e || e.incomplete); });
+  if (miss.length) out.push(`有 ${miss.length} 天工时没填完：${miss.slice(0, 8).map((d) => label(d).split(' ')[0]).join('、')}${miss.length > 8 ? '等' : ''}（没有出车请在备注写“休息”）`);
+  if (!sheets.length) out.push('工时签字凭证照片还没有上传');
+  const nr = expenses.filter((x) => x.incomplete).length;
+  if (nr) out.push(`有 ${nr} 笔垫付缺票据照片`);
+  return out;
 }
 async function doSubmit() {
-  const missing = days().filter((d) => { const e = entryOf(d); return !isRest(e) && (!e || e.incomplete); });
-  const warns = [];
-  if (missing.length) warns.push(`还有 ${missing.length} 天工时没填完（${missing.slice(0, 6).map((d) => label(d).split(' ')[0]).join('、')}${missing.length > 6 ? '等' : ''}）。没有出车的日子请在备注写“休息”。`);
-  if (!sheets.length) warns.push('工时签字凭证照片还没有上传。');
-  if (!confirm(`以「${me.driverName}」的名义提交？` + (warns.length ? '\n\n' + warns.join('\n') : ''))) return;
+  const bl = blockers();
+  if (bl.length) return alert('还不能提交，请先补完：\n\n' + bl.map((t, i) => `${i + 1}. ${t}`).join('\n'));
+  if (!confirm(`以「${me.driverName}」的名义提交？`)) return;
   const b = $('#submit'); b.disabled = true; b.textContent = '提交中…';
   try { const r = await api('/api/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }); submittedAt = r.submittedAt; render(); window.scrollTo(0, document.body.scrollHeight); toast('已提交'); }
   catch (e) { toast(e.message, true); render(); }
@@ -169,11 +178,11 @@ function workSheet(date) {
   if (e.status === 'approved') { ddel('open'); return toast('这一天已确认，不能再改', true); }
   const dk = 'w:' + date, dr = dget(dk);
   const v = dr || { st: e.startTime || '', en: e.endTime || '', nt: e.note || '' };
-  const s = sheet(`<h2>${label(date)}</h2><div class="note">出库到归库的全部时间（含迎车、回送）；超过10小时为超时。</div>
+  const s = sheet(`<h2>${label(date)}</h2><div class="note">出库到归库的全部时间（含迎车、回送）；超过10小时为超时。<br>带 <span class="req">*</span> 的为必填，没填完无法最终提交。没有出车的日子，请在备注写“休息”。</div>
     ${dr ? '<div class="restored">已恢复你上次没来得及保存的内容，请检查后点“保存”。</div>' : ''}
-    <div class="row"><div><label>出库时间</label><input type="time" id="st" value="${esc(v.st)}"></div><div><label>归库时间</label><input type="time" id="en" value="${esc(v.en)}"></div></div>
+    <div class="row"><div><label>出库时间 <span class="req">*</span></label><input type="time" id="st" value="${esc(v.st)}"></div><div><label>归库时间 <span class="req">*</span></label><input type="time" id="en" value="${esc(v.en)}"></div></div>
     <div id="calc" class="calc" hidden></div>
-    <label>备注（没有出车可写“休息”）</label><input id="nt" maxlength="200" value="${esc(v.nt)}">
+    <label>备注（没有出车请写“休息”）</label><input id="nt" maxlength="200" value="${esc(v.nt)}">
     <button class="btn" id="save">保存</button><button class="btn ghost" id="cancel">取消（不保存本次修改）</button>`, { k: 'w', d: date });
   const keep = () => dset(dk, { st: $('#st', s).value, en: $('#en', s).value, nt: $('#nt', s).value });
   const upd = () => { const m = calc($('#st', s).value, $('#en', s).value), c = $('#calc', s);
@@ -201,11 +210,11 @@ function expSheet(x) {
   const v = dr || { dt: x.date || '', ct: x.category || '', ds: x.description || '', am: x.amountYen ?? '' };
   const s = sheet(`<h2>${x.id ? '修改垫付' : '添加一笔垫付'}</h2>
     ${dr ? '<div class="restored">已恢复你上次没来得及保存的内容（票据照片需要重新选择）。</div>' : ''}
-    <label>发生日期</label><select id="dt">${days().map((d) => `<option value="${d}" ${d === v.dt ? 'selected' : ''}>${label(d)}</option>`).join('')}</select>
-    <label>类型</label><select id="ct">${TYPES.map((t) => `<option ${t === v.ct ? 'selected' : ''}>${t}</option>`).join('')}</select>
-    <label>用途 / 地点</label><input id="ds" maxlength="100" value="${esc(v.ds)}" placeholder="例如：名古屋城停车场">
-    <label>金额（日元）</label><input id="am" type="number" inputmode="numeric" min="0" value="${esc(v.am)}">
-    <label>票据照片</label><label class="pick"><input type="file" id="ph" accept="image/*" multiple>📷 拍照 / 选择照片</label>
+    <div class="note">带 <span class="req">*</span> 的为必填（含票据照片），没填完无法最终提交。</div><label>发生日期 <span class="req">*</span></label><select id="dt">${days().map((d) => `<option value="${d}" ${d === v.dt ? 'selected' : ''}>${label(d)}</option>`).join('')}</select>
+    <label>类型 <span class="req">*</span></label><select id="ct">${TYPES.map((t) => `<option ${t === v.ct ? 'selected' : ''}>${t}</option>`).join('')}</select>
+    <label>用途 / 地点 <span class="req">*</span></label><input id="ds" maxlength="100" value="${esc(v.ds)}" placeholder="例如：名古屋城停车场">
+    <label>金额（日元） <span class="req">*</span></label><input id="am" type="number" inputmode="numeric" min="0" value="${esc(v.am)}">
+    <label>票据照片 <span class="req">*</span></label><label class="pick"><input type="file" id="ph" accept="image/*" multiple>📷 拍照 / 选择照片</label>
     <div class="thumbs" id="have">${(x.attachments || []).map((a, i) => `<span>已传 ${i + 1}</span>`).join('')}</div><div class="thumbs" id="new"></div>
     <button class="btn" id="save">保存</button><button class="btn ghost" id="cancel">取消（不保存本次修改）</button>`, { k: 'x', id: x.id || null });
   const keep = () => dset(dk, { dt: $('#dt', s).value, ct: $('#ct', s).value, ds: $('#ds', s).value, am: $('#am', s).value });

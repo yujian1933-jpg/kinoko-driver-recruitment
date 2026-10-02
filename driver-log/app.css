@@ -47,3 +47,7 @@ input,select,textarea{width:100%;padding:12px;border:1px solid var(--line);borde
 .pickgrid button{padding:18px 8px;border-radius:14px;border:1px solid var(--line);background:#fff;font-size:19px;font-weight:700;color:var(--dark)}
 .pickgrid button:active{background:var(--soft)}
 .hello{font-size:19px;font-weight:700;margin-top:8px}
+
+.req{color:#c0392b;font-weight:700}
+.blockers{background:#fbeee0;color:#8a4b0f;border-radius:12px;padding:12px 14px;margin:12px 0;font-size:14px;line-height:1.6}
+.btn:disabled{opacity:.45}
