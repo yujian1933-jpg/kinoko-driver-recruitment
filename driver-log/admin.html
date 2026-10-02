@@ -15,7 +15,7 @@ button.btn.ghost{background:#fff;color:var(--gold);border:1px solid var(--gold)}
 button.sm{padding:5px 10px;font-size:13px;border-radius:8px;border:1px solid var(--line);background:#fff;cursor:pointer}
 input{padding:10px;border:1px solid var(--line);border-radius:10px;font-size:15px;width:100%}
 table{width:100%;border-collapse:collapse}th,td{padding:9px 8px;border-bottom:1px solid #eee;text-align:left;vertical-align:top;font-size:14px}
-th{background:var(--soft);font-size:13px}tr.click{cursor:pointer}tr.bk td{padding-top:0;font-size:12px}table.ov td{padding:9px 6px}main{overflow-x:hidden}tr.click:hover{background:#faf3e3}
+th{background:var(--soft);font-size:13px}tr.click{cursor:pointer}tr.tot td{background:var(--soft);border-top:2px solid var(--line)}table.ov td{padding:9px 6px}main{overflow-x:hidden}tr.click:hover{background:#faf3e3}
 .tag{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;background:var(--soft);color:var(--dark)}
 .tag.ok{background:#e3f3e9;color:var(--ok)}.tag.bad{background:#fbe5e1;color:var(--bad)}.tag.warn{background:#fbeee0;color:#b26a1b}
 .muted{color:#7a7a7a;font-size:13px}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
@@ -58,12 +58,11 @@ async function home(){
  const sub=ds.filter(d=>d.submittedAt).length;
  $('#app').innerHTML=`<div class="card"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px"><b style="font-size:17px">提交进度：${sub} / ${ds.length} 人已提交</b><button id="refresh" style="border:1px solid var(--gold);background:#fff;color:var(--gold);border-radius:999px;padding:4px 14px;font-size:13px;cursor:pointer;white-space:nowrap">刷新</button></div><div class="row">
   <button class="btn ghost" id="csv">导出工时明细</button><button class="btn ghost" id="csv2">导出垫付明细</button><button class="btn" id="zip">下载全部原件 (ZIP)</button></div><div class="muted" id="zipmsg" style="margin-top:6px">原件按“司机名/工作签字表”“司机名/垫付票据”分文件夹。</div></div>
- <div class="card" style="padding:0;overflow:auto"><table class="ov"><tr><th>司机</th><th>提交</th><th>工时</th><th>垫付</th></tr>
- ${ds.map(d=>`<tr class="click" data-id="${d.id}"><td><b>${esc(d.name)}</b><div class="muted">${esc(d.group)}</div></td>
-  <td>${d.submittedAt?`<span class="tag ok">已提交</span><div class="muted">${fmt(d.submittedAt)}${d.times>1?` · 共${d.times}次`:''}</div>`:'<span class="tag warn">未提交</span>'}</td>
-  <td>${d.filledDays} / ${d.totalDays} 天<div class="muted">共 ${hm(d.minutes)}</div><div class="muted">超时 ${hm(d.overtimeMinutes)}</div></td>
-  <td><b>${d.expenseCount} 笔</b><div class="muted">¥${d.amountYen.toLocaleString()}</div></td></tr>
-  ${d.blockers.length?`<tr class="click bk" data-id="${d.id}"><td colspan="4">${d.blockers.map(b=>`<span class="muted">• ${esc(b)}</span>`).join('　')}</td></tr>`:''}`).join('')}</table></div>`;
+ <div class="card" style="padding:0;overflow:auto"><table class="ov"><tr><th>司机提交</th><th>累计超时</th><th>累计垫付金额</th></tr>
+ ${ds.map(d=>`<tr class="click" data-id="${d.id}"><td><b>${esc(d.name)}</b> <span class="muted">${esc(d.group)}</span><div>${d.submittedAt?`<span class="tag ok">已提交</span>`:'<span class="tag warn">未提交</span>'}</div></td>
+  <td>${hm(d.overtimeMinutes)}</td>
+  <td>¥${d.amountYen.toLocaleString()}<div class="muted">${d.expenseCount} 笔</div></td></tr>`).join('')}
+ <tr class="tot"><td><b>总计</b><div class="muted">${sub} / ${ds.length} 人已提交</div></td><td><b>${hm(ds.reduce((s,d)=>s+d.overtimeMinutes,0))}</b></td><td><b>¥${ds.reduce((s,d)=>s+d.amountYen,0).toLocaleString()}</b><div class="muted">${ds.reduce((s,d)=>s+d.expenseCount,0)} 笔</div></td></tr></table></div>`;
  document.querySelectorAll('tr.click').forEach(r=>r.onclick=()=>detail(r.dataset.id));
 
  const stz={draft:'已填写',needs_fix:'退回修改',approved:'已确认'};
