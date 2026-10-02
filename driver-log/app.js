@@ -39,6 +39,40 @@ async function api(path, opts = {}) {
   return data;
 }
 
+const urlCache = new Map();
+async function fileUrl(id) {
+  if (urlCache.has(id)) return urlCache.get(id);
+  const r = await fetch(BASE + 'api/files/' + id, { headers: { Authorization: 'Bearer ' + token } });
+  if (!r.ok) throw new Error('x');
+  const u = URL.createObjectURL(await r.blob()); urlCache.set(id, u); return u;
+}
+const thumb = (f) => `<div class="th" data-fid="${f.id}"><img alt="">${submittedAt ? '' : `<button class="x" data-del="${f.id}" aria-label="删除">×</button>`}</div>`;
+function hydrate(root) {
+  root.querySelectorAll('.th[data-fid]').forEach(async (el) => {
+    try { el.querySelector('img').src = await fileUrl(el.dataset.fid); }
+    catch { el.classList.add('bad'); el.querySelector('img').replaceWith(Object.assign(document.createElement('span'), { textContent: '无法预览' })); }
+  });
+}
+function lightbox(id) {
+  const o = document.createElement('div'); o.className = 'lb';
+  o.innerHTML = `<img alt=""><div class="lbbar"><button class="btn ghost" id="lbclose">关闭</button>${submittedAt ? '' : '<button class="btn danger" id="lbdel">删除这张</button>'}</div>`;
+  fileUrl(id).then((u) => { o.querySelector('img').src = u; }).catch(() => toast('图片无法预览', true));
+  document.body.appendChild(o);
+  o.querySelector('#lbclose').onclick = () => o.remove();
+  o.addEventListener('click', (e) => { if (e.target === o) o.remove(); });
+  o.querySelector('#lbdel')?.addEventListener('click', async () => { if (await delFile(id)) o.remove(); });
+}
+let afterDelete = null;
+async function delFile(id) {
+  if (!confirm('确定删除这张照片吗？删除后需要重新上传。')) return false;
+  try { await api('/api/files/' + id, { method: 'DELETE' }); urlCache.delete(id); await load2(); if (afterDelete) afterDelete(); toast('已删除'); return true; }
+  catch (e) { toast(e.message, true); return false; }
+}
+document.addEventListener('click', (e) => {
+  const d = e.target.closest('[data-del]'); if (d) { e.preventDefault(); e.stopPropagation(); delFile(d.dataset.del); return; }
+  const t = e.target.closest('.th[data-fid] img'); if (t) lightbox(t.closest('.th').dataset.fid);
+}, true);
+
 async function shrink(file) {
   if (!/^image\/(jpeg|png|webp)$/i.test(file.type)) return file;
   try {
@@ -98,10 +132,11 @@ function entryState(e) {
 }
 const fmtTime = (iso) => { const d = new Date(new Date(iso).getTime() + 9 * 3600e3); return `${d.getUTCMonth() + 1}月${d.getUTCDate()}日 ${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`; };
 function submitBlock() {
+  if (submittedAt) return `<div class="done">✅ 已提交<small>提交时间：${fmtTime(submittedAt)}。已提交的内容不能再修改；如需修改，请联系公司。</small></div>`;
   const bl = blockers();
-  return (submittedAt ? `<div class="done">✅ 已提交<small>提交时间：${fmtTime(submittedAt)}。提交后如有修改，请在修改后点击下方“更新提交”。</small></div>` : '')
+  return `<div class="warnbox"><b>提交前请注意</b><div>所有内容全部填写完并确认无误后，再点击提交。<u>提交后不可再修改。</u></div></div>`
     + (bl.length ? `<div class="blockers"><b>还不能提交，请先补完：</b>${bl.map((t) => `<div>• ${esc(t)}</div>`).join('')}</div>` : '')
-    + `<div class="submitbox"><button class="btn" id="submit" ${bl.length ? 'disabled' : ''}>${submittedAt ? '更新提交' : '提交'}</button><div class="note" style="text-align:center">${bl.length ? '带 * 的必填项和照片都补完后，才能提交。' : '全部内容已填完，可以提交。'}</div></div>`;
+    + `<div class="submitbox"><button class="btn" id="submit" ${bl.length ? 'disabled' : ''}>提交</button><div class="note" style="text-align:center">${bl.length ? '带 * 的必填项和照片都补完后，才能提交。' : '全部内容已填完，确认无误后可以提交。'}</div></div>`;
 }
 function blockers() {
   const ds = days(), out = [];
@@ -115,7 +150,7 @@ function blockers() {
 async function doSubmit() {
   const bl = blockers();
   if (bl.length) return alert('还不能提交，请先补完：\n\n' + bl.map((t, i) => `${i + 1}. ${t}`).join('\n'));
-  if (!confirm(`以「${me.driverName}」的名义提交？`)) return;
+  if (!confirm(`以「${me.driverName}」的名义提交？\n\n提交后不能再修改，请确认所有内容都已填完并核对无误。`)) return;
   const b = $('#submit'); b.disabled = true; b.textContent = '提交中…';
   try { const r = await api('/api/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }); submittedAt = r.submittedAt; render(); window.scrollTo(0, document.body.scrollHeight); toast('已提交'); }
   catch (e) { toast(e.message, true); render(); }
@@ -133,10 +168,10 @@ function render() {
       const s = e ? `${e.startTime || '--'} → ${e.endTime || '--'}${e.nextDay ? '（次日）' : ''}${e.overtimeMinutes ? ' · 超时' + hm(e.overtimeMinutes) : ''}` : '点这里填写';
       return `<button class="day" data-d="${d}"><div><div class="d">${label(d)}</div><div class="s">${esc(s)}</div></div><span class="tag ${c}">${esc(t)}</span></button>`; }).join('')
       + `<div class="progress" style="margin-top:16px"><b>📋 工时签字凭证照片，可上传多张</b>
-      <div class="thumbs">${sheets.length ? sheets.map((f, i) => `<span>已传 ${i + 1}</span>`).join('') : '<span style="background:#fbeee0;color:#b26a1b">还没有上传</span>'}</div>
-      <label class="pick" style="margin-top:12px"><input type="file" id="sheetph" accept="image/*" multiple>📷 拍照 / 选择照片</label></div>`;
+      <div class="thumbs">${sheets.length ? sheets.map(thumb).join('') : '<span style="background:#fbeee0;color:#b26a1b">还没有上传</span>'}</div>
+      ${submittedAt ? '' : '<div class="note">点缩略图可放大查看，点右上角 × 可删除传错的照片。</div><label class="pick" style="margin-top:12px"><input type="file" id="sheetph" accept="image/*" multiple>📷 拍照 / 选择照片</label>'}</div>`;
   } else if (tab === 'exp') {
-    h += `<div class="progress"><b>垫付合计 ¥${yen.toLocaleString()}</b><div class="note">共 ${expenses.length} 笔。没有垫付就不用填。</div></div><button class="btn gold" id="addx" style="margin-bottom:12px">＋ 添加一笔垫付</button>`
+    h += `<div class="progress"><b>垫付合计 ¥${yen.toLocaleString()}</b><div class="note">共 ${expenses.length} 笔。没有垫付就不用填。</div></div>${submittedAt ? '' : '<button class="btn gold" id="addx" style="margin-bottom:12px">＋ 添加一笔垫付</button>'}`
       + expenses.map((e) => `<button class="day" data-x="${e.id}"><div><div class="d">¥${(e.amountYen || 0).toLocaleString()} · ${esc(e.category)}</div><div class="s">${label(e.date)} · ${esc(e.description)}</div></div><span class="tag ${e.incomplete ? 'warn' : 'ok'}">${e.incomplete ? '缺票据' : '已保存'}</span></button>`).join('');
   } else {
     const miss = ds.filter((d) => { const e = entryOf(d); return !isRest(e) && (!e || e.incomplete); }).length;
@@ -145,7 +180,7 @@ function render() {
       <div class="note">签字凭证照片：${sheets.length ? `已传 ${sheets.length} 张` : '尚未上传'}</div>
       <div class="note">垫付：${expenses.length} 笔，合计 ¥${yen.toLocaleString()}</div></div>` + submitBlock();
   }
-  $('#app').innerHTML = h;
+  $('#app').innerHTML = h; hydrate($('#app'));
   document.querySelectorAll('.tabs button').forEach((b) => b.onclick = () => { tab = b.dataset.t; render(); window.scrollTo(0, 0); });
   document.querySelectorAll('[data-d]').forEach((b) => b.onclick = () => workSheet(b.dataset.d));
   document.querySelectorAll('[data-x]').forEach((b) => b.onclick = () => expSheet(expenses.find((x) => x.id === b.dataset.x)));
@@ -174,6 +209,7 @@ function calc(start, end, next) {
   return m;
 }
 function workSheet(date) {
+  if (submittedAt) return toast('已提交，不能再修改', true);
   const e = entryOf(date) || {};
   if (e.status === 'approved') { ddel('open'); return toast('这一天已确认，不能再改', true); }
   const dk = 'w:' + date, dr = dget(dk);
@@ -205,6 +241,7 @@ function workSheet(date) {
 }
 const TYPES = ['停车费', '高速费', '加油费', '其他'];
 function expSheet(x) {
+  if (submittedAt) return toast('已提交，不能再修改', true);
   x = x || {};
   const dk = 'x:' + (x.id || 'new'), dr = dget(dk);
   const v = dr || { dt: x.date || '', ct: x.category || '', ds: x.description || '', am: x.amountYen ?? '' };
@@ -215,13 +252,18 @@ function expSheet(x) {
     <label>用途 / 地点 <span class="req">*</span></label><input id="ds" maxlength="100" value="${esc(v.ds)}" placeholder="例如：名古屋城停车场">
     <label>金额（日元） <span class="req">*</span></label><input id="am" type="number" inputmode="numeric" min="0" value="${esc(v.am)}">
     <label>票据照片 <span class="req">*</span></label><label class="pick"><input type="file" id="ph" accept="image/*" multiple>📷 拍照 / 选择照片</label>
-    <div class="thumbs" id="have">${(x.attachments || []).map((a, i) => `<span>已传 ${i + 1}</span>`).join('')}</div><div class="thumbs" id="new"></div>
-    <button class="btn" id="save">保存</button><button class="btn ghost" id="cancel">取消（不保存本次修改）</button>`, { k: 'x', id: x.id || null });
+    <div class="thumbs" id="have">${(x.attachments || []).map(thumb).join('')}</div><div class="thumbs" id="new"></div><div class="note">点缩略图可放大，点 × 可删除传错的照片。</div>
+    <button class="btn" id="save">保存</button>${x.id ? '<button class="btn danger" id="delx">删除这笔垫付</button>' : ''}<button class="btn ghost" id="cancel">取消（不保存本次修改）</button>`, { k: 'x', id: x.id || null });
   const keep = () => dset(dk, { dt: $('#dt', s).value, ct: $('#ct', s).value, ds: $('#ds', s).value, am: $('#am', s).value });
   ['#dt', '#ct', '#ds', '#am'].forEach((q) => { $(q, s).oninput = keep; $(q, s).onchange = keep; });
   if (!dr) keep();
+  hydrate(s);
+  afterDelete = () => { const cur = expenses.find((q) => q.id === x.id); if (cur && $('#have', s)) { x = cur; $('#have', s).innerHTML = (x.attachments || []).map(thumb).join(''); hydrate($('#have', s)); } };
+  const oldRemove = s.remove; s.remove = () => { afterDelete = null; oldRemove(); };
+  $('#delx', s)?.addEventListener('click', async () => { if (!confirm('确定删除这笔垫付（含所有票据照片）吗？')) return; try { await api('/api/expenses/' + x.id, { method: 'DELETE' }); ddel(dk); await load2(); s.remove(); toast('已删除'); } catch (e) { toast(e.message, true); } });
   const files = [];
-  $('#ph', s).onchange = (ev) => { files.push(...ev.target.files); $('#new', s).innerHTML = files.map((f, i) => `<span>新照片 ${i + 1}</span>`).join(''); };
+  const showNew = () => { $('#new', s).innerHTML = files.map((f, i) => `<div class="th"><img alt="" src="${URL.createObjectURL(f)}"><button class="x" data-rm="${i}" aria-label="移除">×</button></div><span class="newtag">待保存</span>`).join(''); $('#new', s).querySelectorAll('[data-rm]').forEach((b) => b.onclick = (ev) => { ev.stopPropagation(); files.splice(+b.dataset.rm, 1); showNew(); }); };
+  $('#ph', s).onchange = (ev) => { files.push(...ev.target.files); ev.target.value = ''; showNew(); };
   $('#cancel', s).onclick = () => { ddel(dk); s.remove(); };
   $('#save', s).onclick = async () => {
     const btn = $('#save', s), amt = $('#am', s).value, desc = $('#ds', s).value.trim();

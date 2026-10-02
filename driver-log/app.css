@@ -51,3 +51,12 @@ input,select,textarea{width:100%;padding:12px;border:1px solid var(--line);borde
 .req{color:#c0392b;font-weight:700}
 .blockers{background:#fbeee0;color:#8a4b0f;border-radius:12px;padding:12px 14px;margin:12px 0;font-size:14px;line-height:1.6}
 .btn:disabled{opacity:.45}
+
+.th{position:relative;display:inline-block;margin:0 8px 8px 0}.th img{height:84px;width:84px;object-fit:cover;border-radius:10px;border:1px solid var(--line);display:block;background:#f3eee0}
+.th.bad span{display:flex;height:84px;width:84px;align-items:center;justify-content:center;font-size:12px;color:#888;border:1px dashed var(--line);border-radius:10px}
+.th .x{position:absolute;top:-7px;right:-7px;width:26px;height:26px;border-radius:50%;border:0;background:var(--bad);color:#fff;font-size:17px;line-height:1;padding:0}
+.newtag{font-size:11px;color:#b26a1b;margin-left:-4px;margin-right:10px;align-self:flex-end}
+.lb{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px}
+.lb img{max-width:100%;max-height:78vh;object-fit:contain}.lbbar{display:flex;gap:12px;margin-top:14px}
+.btn.danger{background:#fff;color:var(--bad);border:1px solid var(--bad);margin-top:8px}
+.warnbox{background:#fff7e0;border:1px solid #ecd58a;color:#6b4f10;border-radius:12px;padding:12px 14px;margin:12px 0;line-height:1.6}

@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
+<title>Kinoko Club Concierge · 管理</title>
+<link rel="icon" href="logo-gold.png">
+<style>
+:root{--ink:#1a2a3a;--gold:#8B6914;--dark:#6b4f10;--line:#d8cfb8;--bg:#FDF8EE;--soft:#efe3cc;--bad:#c0392b;--ok:#2e7d4f}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
+header{background:var(--gold);color:#fff;padding:12px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:5}
+header img{width:34px;height:34px}header b{font-size:16px}header small{display:block;opacity:.85;font-size:12px}header .sp{flex:1}
+header button{background:rgba(255,255,255,.18);color:#fff;border:0;border-radius:8px;padding:7px 12px}
+main{max-width:980px;margin:0 auto;padding:16px}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+button.btn{background:var(--gold);color:#fff;border:0;border-radius:10px;padding:10px 16px;font-size:15px;font-weight:600;cursor:pointer}
+button.btn.ghost{background:#fff;color:var(--gold);border:1px solid var(--gold)}button.btn:disabled{opacity:.5}
+button.sm{padding:5px 10px;font-size:13px;border-radius:8px;border:1px solid var(--line);background:#fff;cursor:pointer}
+input{padding:10px;border:1px solid var(--line);border-radius:10px;font-size:15px;width:100%}
+table{width:100%;border-collapse:collapse}th,td{padding:9px 8px;border-bottom:1px solid #eee;text-align:left;vertical-align:top;font-size:14px}
+th{background:var(--soft);font-size:13px}tr.click{cursor:pointer}tr.click:hover{background:#faf3e3}
+.tag{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;background:var(--soft);color:var(--dark)}
+.tag.ok{background:#e3f3e9;color:var(--ok)}.tag.bad{background:#fbe5e1;color:var(--bad)}.tag.warn{background:#fbeee0;color:#b26a1b}
+.muted{color:#7a7a7a;font-size:13px}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.thumbs{display:flex;gap:8px;flex-wrap:wrap}.thumbs a{display:block;border:1px solid var(--line);border-radius:8px;padding:2px;background:#fff}
+.thumbs img{height:90px;display:block;border-radius:6px}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#222;color:#fff;padding:10px 16px;border-radius:10px;display:none;z-index:9}
+#view{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;z-index:10;align-items:center;justify-content:center;padding:16px}#view img{max-width:100%;max-height:100%}
+@media(max-width:640px){th:nth-child(n+5),td:nth-child(n+5){display:none}}
+</style></head><body>
+<header><img src="logo-white.png" alt=""><div><b>Kinoko Club Concierge</b><small>亚运会司机工时与垫付 · 管理</small></div><span class="sp"></span><button id="out" hidden>退出</button></header>
+<main id="app"></main><div id="toast"></div><div id="view"><img alt=""></div>
+<script>
+const API='https://cola-dispatch.marswave-543.workers.dev/app-b619b1/';
+const $=(q,r=document)=>r.querySelector(q);let tok=sessionStorage.getItem('kd-admin'),data=null;
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const toast=m=>{const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(t._t);t._t=setTimeout(()=>t.style.display='none',2800)};
+async function api(p,o={}){const r=await fetch(API+p.replace(/^\//,''),{...o,headers:{...(o.headers||{}),...(tok?{Authorization:'Bearer '+tok}:{})}});
+ if(o.raw){if(!r.ok)throw new Error('下载失败 '+r.status);return r}
+ const j=await r.json().catch(()=>({}));if(!r.ok||j.ok===false){if(r.status===401&&tok){sessionStorage.removeItem('kd-admin');tok=null}throw new Error(j.error||('错误 '+r.status))}return j}
+const hm=m=>m==null?'--':`${Math.floor(m/60)}小时${m%60}分钟`;
+const fmt=iso=>{if(!iso)return'';const d=new Date(new Date(iso).getTime()+9*36e5);return `${d.getUTCMonth()+1}月${d.getUTCDate()}日 ${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}`};
+const wk='日一二三四五六',lab=d=>{const x=new Date(d+'T00:00:00Z');return `${x.getUTCMonth()+1}月${x.getUTCDate()}日 周${wk[x.getUTCDay()]}`};
+function loginView(msg){$('#out').hidden=true;$('#app').innerHTML=`<div class="card" style="max-width:380px;margin:40px auto"><h3 style="margin-top:0">管理员登录</h3><p class="muted">${esc(msg||'')}</p><input id="pw" type="password" placeholder="管理员密码" autocomplete="current-password"><div style="height:12px"></div><button class="btn" id="go" style="width:100%">登录</button></div>`;
+ const go=async()=>{try{const r=await api('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:$('#pw').value})});tok=r.token;sessionStorage.setItem('kd-admin',tok);home()}catch(e){toast(e.message)}};
+ $('#go').onclick=go;$('#pw').onkeydown=e=>e.key==='Enter'&&go()}
+async function home(){
+ if(!tok)return loginView();$('#out').hidden=false;
+ try{data=await api('/api/admin/overview')}catch(e){return loginView(e.message)}
+ const ds=data.drivers.filter(d=>d.id!=='driver-99'||location.hash.includes('test'));
+ const sub=ds.filter(d=>d.submittedAt).length;
+ $('#app').innerHTML=`<div class="card"><div class="row"><b style="font-size:17px">提交进度：${sub} / ${ds.length} 人已提交</b><span class="sp" style="flex:1"></span>
+  <button class="btn ghost" id="csv">导出表格 (CSV)</button><button class="btn" id="zip">下载全部原件 (ZIP)</button></div><div class="muted" id="zipmsg" style="margin-top:6px">原件按“司机名/工作签字表”“司机名/垫付票据”分文件夹。</div></div>
+ <div class="card" style="padding:0;overflow:auto"><table><tr><th>司机</th><th>提交</th><th>工时</th><th>累计 / 超时</th><th>垫付</th><th>还缺</th></tr>
+ ${ds.map(d=>`<tr class="click" data-id="${d.id}"><td><b>${esc(d.name)}</b><div class="muted">${esc(d.group)}</div></td>
+  <td>${d.submittedAt?`<span class="tag ok">已提交</span><div class="muted">${fmt(d.submittedAt)}${d.times>1?` · 共${d.times}次`:''}</div>`:'<span class="tag warn">未提交</span>'}</td>
+  <td>${d.filledDays} / ${d.totalDays} 天</td><td>${hm(d.minutes)}<div class="muted">超时 ${hm(d.overtimeMinutes)}</div></td>
+  <td>${d.expenseCount} 笔<div class="muted">¥${d.amountYen.toLocaleString()}</div></td>
+  <td>${d.blockers.length?d.blockers.map(b=>`<div class="muted">• ${esc(b)}</div>`).join(''):'<span class="tag ok">齐全</span>'}</td></tr>`).join('')}</table></div>`;
+ document.querySelectorAll('tr.click').forEach(r=>r.onclick=()=>detail(r.dataset.id));
+ $('#csv').onclick=async()=>{try{const r=await api('/api/export.csv',{raw:true});save(await r.blob(),'司机工时与垫付明细.csv')}catch(e){toast(e.message)}};
+ $('#zip').onclick=makeZip}
+function save(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),4000)}
+async function blobUrl(id){const r=await api('/api/files/'+id,{raw:true});return URL.createObjectURL(await r.blob())}
+async function detail(id){
+ const d=data.drivers.find(x=>x.id===id);$('#app').innerHTML='<p class="muted">加载中…</p>';
+ const [en,ex,sh]=await Promise.all([api('/api/entries'),api('/api/expenses'),api('/api/sheets?driverId='+id)]);
+ const E=new Map(en.records.filter(r=>r.driverId===id).map(r=>[r.date,r])),X=ex.records.filter(r=>r.driverId===id).sort((a,b)=>a.date.localeCompare(b.date));
+ $('#app').innerHTML=`<div class="row" style="margin-bottom:10px"><button class="sm" id="back">← 返回</button><b style="font-size:18px">${esc(d.name)}</b>${d.submittedAt?`<span class="tag ok">已提交 ${fmt(d.submittedAt)}</span>`:'<span class="tag warn">未提交</span>'}</div>
+ <div class="card"><b>每日工时</b><div class="muted">累计 ${hm(d.minutes)} · 超时 ${hm(d.overtimeMinutes)}</div><table><tr><th>日期</th><th>出库 → 归库</th><th>时长 / 超时</th><th>备注</th><th>状态</th></tr>
+ ${data.days.map(day=>{const e=E.get(day);return e?`<tr><td>${lab(day)}</td><td>${e.startTime||'--'} → ${e.endTime||'--'}${e.nextDay?'（次日）':''}</td><td>${hm(e.minutes)}<div class="muted">${e.overtimeMinutes?'超时 '+hm(e.overtimeMinutes):''}</div></td><td>${esc(e.note)}</td>
+  <td>${e.status==='needs_fix'?'<span class="tag bad">已退回</span>':e.status==='approved'?'<span class="tag ok">已确认</span>':''}<div class="muted">${esc(e.reviewComment)}</div>
+  ${e.status!=='approved'?`<button class="sm" data-rv="entry:${e.id}:needs_fix">退回修改</button> `:''}${e.status!=='approved'&&e.startTime&&e.endTime?`<button class="sm" data-rv="entry:${e.id}:approved">确认</button>`:''}</td></tr>`
+  :`<tr><td>${lab(day)}</td><td colspan="4" class="muted">未填</td></tr>`}).join('')}</table></div>
+ <div class="card"><b>工时签字凭证照片（${sh.sheets.length} 张）</b><div class="thumbs" id="sheets" style="margin-top:8px"></div></div>
+ <div class="card"><b>垫付明细（${X.length} 笔 · ¥${X.reduce((a,x)=>a+x.amountYen,0).toLocaleString()}）</b>
+ ${X.length?X.map(x=>`<div style="padding:10px 0;border-top:1px solid #eee"><div class="row"><b>¥${x.amountYen.toLocaleString()}</b><span>${esc(x.category)}</span><span class="muted">${lab(x.date)} · ${esc(x.description)}</span>
+  ${x.incomplete?'<span class="tag warn">缺票据</span>':''}${x.status==='needs_fix'?'<span class="tag bad">已退回</span>':''}${x.status==='approved'?'<span class="tag ok">已确认</span>':''}
+  ${x.status!=='approved'?`<button class="sm" data-rv="expense:${x.id}:needs_fix">退回修改</button>`:''}${x.status!=='approved'&&!x.incomplete?`<button class="sm" data-rv="expense:${x.id}:approved">确认</button>`:''}</div>
+  <div class="muted">${esc(x.reviewComment)}</div><div class="thumbs" data-x="${x.id}" style="margin-top:6px"></div></div>`).join(''):'<p class="muted">没有垫付记录</p>'}</div>`;
+ $('#back').onclick=home;
+ sh.sheets.forEach(async f=>{try{const u=await blobUrl(f.id);$('#sheets').insertAdjacentHTML('beforeend',`<a href="#" data-u="${u}"><img src="${u}"></a>`)}catch{}});
+ X.forEach(x=>x.attachments.forEach(async f=>{try{const u=await blobUrl(f.id);$(`[data-x="${x.id}"]`).insertAdjacentHTML('beforeend',`<a href="#" data-u="${u}"><img src="${u}"></a>`)}catch{}}));
+ document.onclick=e=>{const a=e.target.closest('a[data-u]');if(a){e.preventDefault();$('#view img').src=a.dataset.u;$('#view').style.display='flex'}};
+ document.querySelectorAll('[data-rv]').forEach(b=>b.onclick=async()=>{const [type,rid,status]=b.dataset.rv.split(':');let comment='';
+  if(status==='needs_fix'){comment=prompt('退回原因（司机会看到）：');if(!comment)return}
+  try{await api('/api/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,id:rid,status,comment})});toast('已处理');await home();detail(id)}catch(e){toast(e.message)}})}
+$('#view').onclick=()=>$('#view').style.display='none';
+// ---- 本地打包 ZIP（不压缩，按司机名分文件夹）----
+const CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+const crc32=b=>{let c=~0;for(let i=0;i<b.length;i++)c=CRC[(c^b[i])&255]^(c>>>8);return(~c)>>>0};
+function buildZip(files){const enc=new TextEncoder(),parts=[],cen=[];let off=0;
+ for(const f of files){const nm=enc.encode(f.name),crc=crc32(f.data),sz=f.data.length;
+  const lh=new DataView(new ArrayBuffer(30));lh.setUint32(0,0x04034b50,true);lh.setUint16(4,20,true);lh.setUint16(6,0x0800,true);lh.setUint32(14,crc,true);lh.setUint32(18,sz,true);lh.setUint32(22,sz,true);lh.setUint16(26,nm.length,true);
+  parts.push(lh.buffer,nm,f.data);
+  const ch=new DataView(new ArrayBuffer(46));ch.setUint32(0,0x02014b50,true);ch.setUint16(4,20,true);ch.setUint16(6,20,true);ch.setUint16(8,0x0800,true);ch.setUint32(16,crc,true);ch.setUint32(20,sz,true);ch.setUint32(24,sz,true);ch.setUint16(28,nm.length,true);ch.setUint32(42,off,true);
+  cen.push(ch.buffer,nm);off+=30+nm.length+sz}
+ let cs=0;for(const c of cen)cs+=c.byteLength;const end=new DataView(new ArrayBuffer(22));end.setUint32(0,0x06054b50,true);end.setUint16(8,files.length,true);end.setUint16(10,files.length,true);end.setUint32(12,cs,true);end.setUint32(16,off,true);
+ return new Blob([...parts,...cen,end.buffer],{type:'application/zip'})}
+const extOf=t=>({'image/jpeg':'jpg','image/png':'png','image/webp':'webp','image/heic':'heic','application/pdf':'pdf'}[t]||'bin');
+async function makeZip(){const m=$('#zipmsg'),b=$('#zip');b.disabled=true;
+ try{const [en,ex,sh]=await Promise.all([api('/api/entries'),api('/api/expenses'),api('/api/sheets')]);
+  const jobs=[];const names=new Map(data.drivers.map(d=>[d.id,d.name]));
+  const cnt={};const nextN=k=>(cnt[k]=(cnt[k]||0)+1).toString().padStart(2,'0');
+  sh.sheets.forEach(f=>jobs.push({id:f.id,dir:`${f.driverName}/工作签字表`,base:`签字表`,key:f.driverId+'s'}));
+  ex.records.forEach(x=>x.attachments.forEach(a=>jobs.push({id:a.id,dir:`${x.driverName}/垫付票据`,base:`${x.date}_${x.category}`,key:x.driverId+x.date+x.category})));
+  const files=[];let i=0;
+  for(const j of jobs){m.textContent=`正在打包 ${++i} / ${jobs.length} …`;const r=await api('/api/files/'+j.id,{raw:true});const ct=r.headers.get('Content-Type');const data=new Uint8Array(await r.arrayBuffer());
+   files.push({name:`${j.dir}/${j.base}_${nextN(j.key)}.${extOf(ct)}`,data})}
+  if(!files.length){m.textContent='目前还没有任何原件可下载。';b.disabled=false;return}
+  save(buildZip(files),'亚运会司机原件.zip');m.textContent=`已打包 ${files.length} 个文件。`}
+ catch(e){m.textContent='打包失败：'+e.message}b.disabled=false}
+$('#out').onclick=()=>{sessionStorage.removeItem('kd-admin');tok=null;loginView()};
+tok?home():loginView();
+</script></body></html>
