@@ -101,14 +101,22 @@ async function uploadFile(file, kind, recordId) {
 function pickWho(msg) {
   const list = showTest ? [...ROSTER, ['driver-99', '测试账号（可忽略）']] : ROSTER;
   $('#app').innerHTML = `<div class="hello">请选择你的名字</div><div class="note">${esc(msg || '只点你自己的名字。选错了别人的，会把别人的记录弄乱。')}</div><div class="pickgrid">${list.map(([id, n]) => `<button data-id="${id}">${esc(n)}</button>`).join('')}</div><p class="center" style="margin:28px 0 8px"><a href="admin.html" style="color:#8B6914;font-size:13px;text-decoration:none;border-bottom:1px solid #d8cfb8">管理员入口</a></p>`;
-  document.querySelectorAll('.pickgrid button').forEach((b) => b.onclick = async () => {
-    const name = b.textContent;
-    if (!confirm(`你是「${name}」本人吗？`)) return;
+  document.querySelectorAll('.pickgrid button').forEach((b) => b.onclick = () => askPin(b.dataset.id, b.textContent));
+}
+function askPin(id, name, msg) {
+  $('#app').innerHTML = `<div class="hello">${esc(name)}</div><div class="note">${esc(msg || '请输入公司发给你的 4 位数字密码。')}</div><div style="margin-top:14px"><input id="pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="one-time-code" placeholder="4 位数字密码" style="width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;font-size:20px;letter-spacing:8px;text-align:center"></div><div style="height:12px"></div><button class="btn" id="pinok" style="width:100%">确认</button><div style="height:10px"></div><button class="btn cancel" id="pinback" style="width:100%">返回，重新选择名字</button>`;
+  const go = async () => {
+    const pin = $('#pin').value.trim();
+    if (!/^\d{4}$/.test(pin)) return toast('请输入 4 位数字密码', true);
+    const ok = $('#pinok'); ok.disabled = true; ok.textContent = '验证中…';
     try {
-      const r = await api('/api/enter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: teamKey, driverId: b.dataset.id }) });
+      const r = await api('/api/enter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: teamKey, driverId: id, pin }) });
       token = r.token; localStorage.setItem('kd-tk', token); load();
-    } catch (e) { toast(e.message, true); }
-  });
+    } catch (e) { ok.disabled = false; ok.textContent = '确认'; toast(e.message, true); $('#pin').value = ''; $('#pin').focus(); }
+  };
+  $('#pinok').onclick = go; $('#pin').onkeydown = (e) => { if (e.key === 'Enter') go(); };
+  $('#pinback').onclick = () => pickWho();
+  setTimeout(() => $('#pin').focus(), 50);
 }
 async function load() {
   if (!teamKey) return noAccess('链接不完整，请用公司发给你的完整链接重新打开。');

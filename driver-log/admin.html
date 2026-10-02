@@ -56,7 +56,7 @@ async function home(){
  try{data=await api('/api/admin/overview')}catch(e){return loginView(e.message)}
  const ds=data.drivers.filter(d=>d.id!=='driver-99'||location.hash.includes('test'));
  const sub=ds.filter(d=>d.submittedAt).length;
- $('#app').innerHTML=`<div class="card"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px"><b style="font-size:17px">提交进度：${sub} / ${ds.length} 人已提交</b><button id="refresh" style="border:1px solid var(--gold);background:#fff;color:var(--gold);border-radius:999px;padding:4px 14px;font-size:13px;cursor:pointer;white-space:nowrap">刷新</button></div><div class="row">
+ $('#app').innerHTML=`<div class="card"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px"><b style="font-size:17px">提交进度：${sub} / ${ds.length} 人已提交</b><span style="display:flex;gap:6px"><button id="pins" style="border:1px solid var(--gold);background:#fff;color:var(--gold);border-radius:999px;padding:4px 14px;font-size:13px;cursor:pointer;white-space:nowrap">司机密码</button><button id="refresh" style="border:1px solid var(--gold);background:#fff;color:var(--gold);border-radius:999px;padding:4px 14px;font-size:13px;cursor:pointer;white-space:nowrap">刷新</button></span></div><div class="row">
   <button class="btn ghost" id="csv">导出工时明细</button><button class="btn ghost" id="csv2">导出垫付明细</button><button class="btn" id="zip">下载全部原件 (ZIP)</button></div><div class="muted" id="zipmsg" style="margin-top:6px">原件按“司机名/工作签字表”“司机名/垫付票据”分文件夹。</div></div>
  <div class="card" style="padding:0;overflow:auto"><table class="ov"><tr><th>司机</th><th>提交</th><th>累计超时</th><th>累计垫付金额</th></tr>
  ${ds.map(d=>`<tr class="click" data-id="${d.id}"><td><b>${esc(d.name)}</b><div class="muted">${esc(d.group)}</div></td><td>${d.submittedAt?`<span class="tag ok">已提交</span>`:'<span class="tag warn">未提交</span>'}</td>
@@ -83,15 +83,22 @@ async function home(){
    const rows=L.map(x=>[lab(x.date),x.category,x.description,x.amountYen,x.note,(x.attachments||[]).length,(x.attachments||[]).map(f=>f.name).join('；'),stz[x.status]||x.status,x.incomplete?'缺票据':'齐全']);
    return{name:d.name,head,rows,total:['合计（'+L.length+' 笔）','','',L.reduce((s,x)=>s+x.amountYen,0),'',L.reduce((s,x)=>s+(x.attachments||[]).length,0),'','',''],yenCols:[3]}});
   save(buildXlsx(sheets),'司机垫付明细.xlsx')}catch(e){toast(e.message)}};
- $('#refresh').onclick=()=>home();
+ $('#refresh').onclick=()=>home();$('#pins').onclick=pinsView;
  $('#zip').onclick=makeZip}
 function save(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),4000)}
 async function blobUrl(id){const r=await api('/api/files/'+id,{raw:true});return URL.createObjectURL(await r.blob())}
+async function pinsView(){
+ $('#app').innerHTML='<p class="muted">加载中…</p>';
+ let r;try{r=await api('/api/admin/pins')}catch(e){toast(e.message);return home()}
+ const list=r.pins.filter(p=>p.id!=='driver-99'||location.hash.includes('test'));
+ $('#app').innerHTML=`<div class="row" style="margin-bottom:10px"><button class="sm" id="back">← 返回</button><b style="font-size:18px">司机密码</b></div><div class="card"><div class="muted" style="margin-bottom:6px">司机选自己名字后，要输入下面对应的 4 位数字。请单独告诉每位司机，不要发群里。</div><table><tr><th>司机</th><th>密码</th><th></th></tr>${list.map(p=>`<tr><td><b>${esc(p.name)}</b><div class="muted">${esc(p.group)}</div></td><td style="font-size:20px;letter-spacing:3px;font-weight:700" data-pin="${p.id}">${esc(p.pin||'')}</td><td><button class="sm" data-rp="${p.id}">换一个</button></td></tr>`).join('')}</table></div>`;
+ $('#back').onclick=home;
+ document.querySelectorAll('[data-rp]').forEach(b=>b.onclick=async()=>{if(!confirm('换一个新密码？该司机旧密码立即作废（已登录的手机不受影响）。'))return;try{const x=await api('/api/admin/pins/reset',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({driverId:b.dataset.rp})});document.querySelector(`[data-pin="${b.dataset.rp}"]`).textContent=x.pin;toast('已更换')}catch(e){toast(e.message)}})}
 async function detail(id){
  const d=data.drivers.find(x=>x.id===id);$('#app').innerHTML='<p class="muted">加载中…</p>';
  const [en,ex,sh]=await Promise.all([api('/api/entries'),api('/api/expenses'),api('/api/sheets?driverId='+id)]);
  const E=new Map(en.records.filter(r=>r.driverId===id).map(r=>[r.date,r])),X=ex.records.filter(r=>r.driverId===id).sort((a,b)=>a.date.localeCompare(b.date));
- $('#app').innerHTML=`<div class="row" style="margin-bottom:10px"><button class="sm" id="back">← 返回</button><b style="font-size:18px">${esc(d.name)}</b>${d.submittedAt?`<span class="tag ok">已提交 ${fmt(d.submittedAt)}</span>`:'<span class="tag warn">未提交</span>'}</div>
+ $('#app').innerHTML=`<div class="row" style="margin-bottom:10px"><button class="sm" id="back">← 返回</button><b style="font-size:18px">${esc(d.name)}</b>${d.submittedAt?`<span class="tag ok">已提交 ${fmt(d.submittedAt)}</span>`:'<span class="tag warn">未提交</span>'}${d.submittedAt?'<button class="sm" id="rst" style="margin-left:auto">重置提交（允许司机修改）</button>':''}</div>
  <div class="card"><b>每日工时</b><div class="muted">累计 ${hm(d.minutes)} · 超时 ${hm(d.overtimeMinutes)}</div><table><tr><th>日期</th><th>出库 → 归库</th><th>状态</th></tr>
  ${data.days.map(day=>{const e=E.get(day);return e?`<tr><td>${lab(day)}</td><td>${e.startTime||'--'} → ${e.endTime||'--'}${e.nextDay?'（次日）':''}<div class="muted">${e.minutes==null?'':hm(e.minutes)}${e.overtimeMinutes?' · 超时 '+hm(e.overtimeMinutes):''}</div>${e.note?`<div class="muted">${esc(e.note)}</div>`:''}</td>
   <td>${e.status==='needs_fix'?'<span class="tag bad">已退回</span>':e.status==='approved'?'<span class="tag ok">已确认</span>':''}<div class="muted">${esc(e.reviewComment)}</div>
@@ -103,7 +110,7 @@ async function detail(id){
   ${x.incomplete?'<span class="tag warn">缺票据</span>':''}${x.status==='needs_fix'?'<span class="tag bad">已退回</span>':''}${x.status==='approved'?'<span class="tag ok">已确认</span>':''}
   ${x.status!=='approved'?`<button class="sm" data-rv="expense:${x.id}:needs_fix">退回修改</button>`:''}${x.status!=='approved'&&!x.incomplete?`<button class="sm" data-rv="expense:${x.id}:approved">确认</button>`:''}</div>
   <div class="muted">${esc(x.reviewComment)}</div><div class="thumbs" data-x="${x.id}" style="margin-top:6px"></div></div>`).join(''):'<p class="muted">没有垫付记录</p>'}</div>`;
- $('#back').onclick=home;
+ $('#back').onclick=home;if($('#rst'))$('#rst').onclick=async()=>{if(!confirm('重置后，'+d.name+' 的“已提交”状态会取消，可以重新修改并再次提交。确定吗？'))return;try{await api('/api/admin/submissions/reset',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({driverId:id})});toast('已重置');await home();detail(id)}catch(e){toast(e.message)}};
  sh.sheets.forEach(async f=>{try{const u=await blobUrl(f.id);$('#sheets').insertAdjacentHTML('beforeend',`<a href="#" data-u="${u}"><img src="${u}"></a>`)}catch{}});
  X.forEach(x=>x.attachments.forEach(async f=>{try{const u=await blobUrl(f.id);$(`[data-x="${x.id}"]`).insertAdjacentHTML('beforeend',`<a href="#" data-u="${u}"><img src="${u}"></a>`)}catch{}}));
  document.onclick=e=>{const a=e.target.closest('a[data-u]');if(a){e.preventDefault();$('#view img').src=a.dataset.u;$('#view').style.display='flex'}};
