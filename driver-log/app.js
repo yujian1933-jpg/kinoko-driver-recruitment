@@ -118,7 +118,7 @@ async function load() {
     noAccess(e.message);
   }
 }
-function noAccess(msg) { $('#app').innerHTML = `<p class="center">${esc(msg)}</p>`; }
+function noAccess(msg) { $('#app').innerHTML = `<p class="center">${esc(msg)}</p><p class="center" style="margin:28px 0 8px"><a href="admin.html" style="color:#8B6914;font-size:13px;text-decoration:none;border-bottom:1px solid #d8cfb8">管理员入口</a></p>`; }
 
 const entryOf = (d) => entries.find((e) => e.date === d);
 const isRest = (e) => e && !e.startTime && !e.endTime && /^休息/.test(e.note || '');
