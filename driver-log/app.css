@@ -60,3 +60,9 @@ input,select,textarea{width:100%;padding:12px;border:1px solid var(--line);borde
 .lb img{max-width:100%;max-height:78vh;object-fit:contain}.lbbar{display:flex;gap:12px;margin-top:14px}
 .btn.danger{background:#fff;color:var(--bad);border:1px solid var(--bad);margin-top:8px}
 .warnbox{background:#fff7e0;border:1px solid #ecd58a;color:#6b4f10;border-radius:12px;padding:12px 14px;margin:12px 0;line-height:1.6}
+
+.lbbar{gap:10px;margin-top:16px}
+.lbb{min-width:92px;padding:8px 18px;border-radius:999px;border:1px solid rgba(255,255,255,.55);background:rgba(255,255,255,.12);color:#fff;font-size:14px;font-weight:500}
+.lbb.del{background:#c0392b;border-color:#c0392b}
+.btn.cancel{background:#efe3cc;color:#6b4f10;border:1px solid #d8cfb8;box-shadow:none}
+.btn.delbox{background:#fdecea;color:#c0392b;border:1px solid #e3a69e;box-shadow:none;margin-top:12px}

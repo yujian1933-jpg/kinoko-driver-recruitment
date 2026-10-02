@@ -55,7 +55,7 @@ function hydrate(root) {
 }
 function lightbox(id) {
   const o = document.createElement('div'); o.className = 'lb';
-  o.innerHTML = `<img alt=""><div class="lbbar"><button class="btn ghost" id="lbclose">关闭</button>${submittedAt ? '' : '<button class="btn danger" id="lbdel">删除这张</button>'}</div>`;
+  o.innerHTML = `<img alt=""><div class="lbbar"><button class="lbb" id="lbclose">关闭</button>${submittedAt ? '' : '<button class="lbb del" id="lbdel">删除这张</button>'}</div>`;
   fileUrl(id).then((u) => { o.querySelector('img').src = u; }).catch(() => toast('图片无法预览', true));
   document.body.appendChild(o);
   o.querySelector('#lbclose').onclick = () => o.remove();
@@ -253,7 +253,7 @@ function expSheet(x) {
     <label>金额（日元） <span class="req">*</span></label><input id="am" type="number" inputmode="numeric" min="0" value="${esc(v.am)}">
     <label>票据照片 <span class="req">*</span></label><label class="pick"><input type="file" id="ph" accept="image/*" multiple>📷 拍照 / 选择照片</label>
     <div class="thumbs" id="have">${(x.attachments || []).map(thumb).join('')}</div><div class="thumbs" id="new"></div><div class="note">点缩略图可放大，点 × 可删除传错的照片。</div>
-    <button class="btn" id="save">保存</button>${x.id ? '<button class="btn danger" id="delx">删除这笔垫付</button>' : ''}<button class="btn ghost" id="cancel">取消（不保存本次修改）</button>`, { k: 'x', id: x.id || null });
+    <button class="btn" id="save">保存</button><button class="btn cancel" id="cancel">取消（不保存本次修改）</button>${x.id ? '<button class="btn delbox" id="delx">删除这笔垫付</button>' : ''}`, { k: 'x', id: x.id || null });
   const keep = () => dset(dk, { dt: $('#dt', s).value, ct: $('#ct', s).value, ds: $('#ds', s).value, am: $('#am', s).value });
   ['#dt', '#ct', '#ds', '#am'].forEach((q) => { $(q, s).oninput = keep; $(q, s).onchange = keep; });
   if (!dr) keep();
