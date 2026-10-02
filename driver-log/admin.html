@@ -5,9 +5,9 @@
 <style>
 :root{--ink:#1a2a3a;--gold:#8B6914;--dark:#6b4f10;--line:#d8cfb8;--bg:#FDF8EE;--soft:#efe3cc;--bad:#c0392b;--ok:#2e7d4f}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
-header{background:var(--gold);color:#fff;padding:12px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:5}
+header{background:var(--gold);color:#fff;padding:12px 18px 12px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:5}
 header img{width:34px;height:34px}header b{font-size:16px}header small{display:block;opacity:.85;font-size:12px}header .sp{flex:1}
-header .pill{display:inline-block;background:transparent;color:#fff;border:1px solid rgba(255,255,255,.65);border-radius:999px;padding:5px 14px;font-size:13px;line-height:1.4;text-decoration:none;margin-left:8px;cursor:pointer;white-space:nowrap}header .pill[hidden]{display:none}header .pill:active{background:rgba(255,255,255,.2)}header small{opacity:.9}
+header .pill{display:inline-block;margin-right:6px;background:transparent;color:#fff;border:1px solid rgba(255,255,255,.65);border-radius:999px;padding:4px 12px;font-size:13px;line-height:1.4;text-decoration:none;margin-left:8px;cursor:pointer;white-space:nowrap}header .pill[hidden]{display:none}header .pill:active{background:rgba(255,255,255,.2)}header small{opacity:.9}
 main{max-width:980px;margin:0 auto;padding:16px}
 .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
 button.btn{background:var(--gold);color:#fff;border:0;border-radius:10px;padding:10px 16px;font-size:15px;font-weight:600;cursor:pointer}
@@ -46,8 +46,8 @@ async function home(){
  try{data=await api('/api/admin/overview')}catch(e){return loginView(e.message)}
  const ds=data.drivers.filter(d=>d.id!=='driver-99'||location.hash.includes('test'));
  const sub=ds.filter(d=>d.submittedAt).length;
- $('#app').innerHTML=`<div class="card"><div class="row"><b style="font-size:17px">提交进度：${sub} / ${ds.length} 人已提交</b><span class="sp" style="flex:1"></span>
-  <button class="btn ghost" id="refresh">刷新最新数据</button><button class="btn ghost" id="csv">导出工时明细</button><button class="btn ghost" id="csv2">导出垫付明细</button><button class="btn" id="zip">下载全部原件 (ZIP)</button></div><div class="muted" id="zipmsg" style="margin-top:6px">原件按“司机名/工作签字表”“司机名/垫付票据”分文件夹。</div></div>
+ $('#app').innerHTML=`<div class="card"><div class="row"><b style="font-size:17px">提交进度：${sub} / ${ds.length} 人已提交</b><button id="refresh" style="margin-left:10px;border:1px solid var(--line);background:#fff;color:var(--gold);border-radius:999px;padding:2px 12px;font-size:13px;cursor:pointer">刷新</button><span class="sp" style="flex:1"></span>
+  <button class="btn ghost" id="csv">导出工时明细</button><button class="btn ghost" id="csv2">导出垫付明细</button><button class="btn" id="zip">下载全部原件 (ZIP)</button></div><div class="muted" id="zipmsg" style="margin-top:6px">原件按“司机名/工作签字表”“司机名/垫付票据”分文件夹。</div></div>
  <div class="card" style="padding:0;overflow:auto"><table><tr><th>司机</th><th>提交</th><th>工时</th><th>累计 / 超时</th><th>垫付</th><th>还缺</th></tr>
  ${ds.map(d=>`<tr class="click" data-id="${d.id}"><td><b>${esc(d.name)}</b><div class="muted">${esc(d.group)}</div></td>
   <td>${d.submittedAt?`<span class="tag ok">已提交</span><div class="muted">${fmt(d.submittedAt)}${d.times>1?` · 共${d.times}次`:''}</div>`:'<span class="tag warn">未提交</span>'}</td>
