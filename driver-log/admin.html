@@ -39,7 +39,7 @@ const hm=m=>m==null?'--':`${Math.floor(m/60)}小时${m%60}分钟`;
 const fmt=iso=>{if(!iso)return'';const d=new Date(new Date(iso).getTime()+9*36e5);return `${d.getUTCMonth()+1}月${d.getUTCDate()}日 ${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}`};
 const wk='日一二三四五六',lab=d=>{const x=new Date(d+'T00:00:00Z');return `${x.getUTCMonth()+1}月${x.getUTCDate()}日 周${wk[x.getUTCDay()]}`};
 function loginView(msg){$('#out').hidden=true;$('#app').innerHTML=`<div class="card" style="max-width:380px;margin:40px auto"><h3 style="margin-top:0">管理员登录</h3><p class="muted">${esc(msg||'')}</p><input id="pw" type="password" placeholder="管理员密码" autocomplete="current-password"><div style="height:12px"></div><button class="btn" id="go" style="width:100%">登录</button></div>`;
- const go=async()=>{try{const r=await api('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:$('#pw').value})});tok=r.token;sessionStorage.setItem('kd-admin',tok);home()}catch(e){toast(e.message)}};
+ const go=async()=>{const b=$('#go');b.disabled=true;b.textContent='登录中，请稍候…';try{const r=await api('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:$('#pw').value})});tok=r.token;sessionStorage.setItem('kd-admin',tok);$('#app').innerHTML='<div class="card" style="max-width:380px;margin:40px auto"><p>登录成功，正在加载数据…</p></div>';home()}catch(e){b.disabled=false;b.textContent='登录';toast(e.message)}};
  $('#go').onclick=go;$('#pw').onkeydown=e=>e.key==='Enter'&&go()}
 async function home(){
  if(!tok)return loginView();$('#out').hidden=false;
