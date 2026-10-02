@@ -94,41 +94,47 @@ function entryState(e) {
   if (e.status === 'approved') return ['已确认', 'ok'];
   if (e.status === 'needs_fix') return ['需修改', 'bad'];
   if (e.incomplete) return ['缺' + (e.missing || []).map((m) => ({ startTime: '出库', endTime: '归库' }[m])).filter(Boolean).join('、'), 'warn'];
-  return ['已提交', 'ok'];
+  return ['已保存', 'ok'];
 }
 const fmtTime = (iso) => { const d = new Date(new Date(iso).getTime() + 9 * 3600e3); return `${d.getUTCMonth() + 1}月${d.getUTCDate()}日 ${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`; };
 function submitBlock() {
-  return (submittedAt ? `<div class="done">✅ 已提交完成<small>提交时间 ${fmtTime(submittedAt)}。如果之后又改了内容，请再点下面的按钮重新提交一次。</small></div>` : '')
-    + `<div class="submitbox"><button class="btn" id="submit">${submittedAt ? '我又改了，重新提交完成' : '✅ 全部填完、照片也传完了，提交完成'}</button><div class="note" style="text-align:center">点这个按钮，就是告诉公司你已经全部填完了。</div></div>`;
+  return (submittedAt ? `<div class="done">✅ 已提交<small>提交时间：${fmtTime(submittedAt)}。提交后如有修改，请在修改后点击下方“更新提交”。</small></div>` : '')
+    + `<div class="submitbox"><button class="btn" id="submit">${submittedAt ? '更新提交' : '提交'}</button><div class="note" style="text-align:center">全部填写并上传完毕后，请点击“提交”。</div></div>`;
 }
 async function doSubmit() {
   const missing = days().filter((d) => { const e = entryOf(d); return !isRest(e) && (!e || e.incomplete); });
   const warns = [];
   if (missing.length) warns.push(`还有 ${missing.length} 天工时没填完（${missing.slice(0, 6).map((d) => label(d).split(' ')[0]).join('、')}${missing.length > 6 ? '等' : ''}）。没有出车的日子请在备注写“休息”。`);
   if (!sheets.length) warns.push('工时签字凭证照片还没有上传。');
-  if (!confirm(`以「${me.driverName}」的名义提交完成？` + (warns.length ? '\n\n' + warns.join('\n') : ''))) return;
+  if (!confirm(`以「${me.driverName}」的名义提交？` + (warns.length ? '\n\n' + warns.join('\n') : ''))) return;
   const b = $('#submit'); b.disabled = true; b.textContent = '提交中…';
-  try { const r = await api('/api/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }); submittedAt = r.submittedAt; render(); window.scrollTo(0, document.body.scrollHeight); toast('已提交完成，谢谢'); }
+  try { const r = await api('/api/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }); submittedAt = r.submittedAt; render(); window.scrollTo(0, document.body.scrollHeight); toast('已提交'); }
   catch (e) { toast(e.message, true); render(); }
 }
 function render() {
   const ds = days(), done = ds.filter((d) => { const e = entryOf(d); return e && !e.incomplete; }).length;
   const total = entries.reduce((a, e) => a + (e.minutes || 0), 0), ot = entries.reduce((a, e) => a + (e.overtimeMinutes || 0), 0);
   const yen = expenses.reduce((a, e) => a + (e.amountYen || 0), 0);
-  let h = `<div class="who"><div><small>当前填写人</small><b>${esc(me.driverName)}</b></div><button id="switch">不是我？切换</button></div><div class="progress"><b>工时已完整填 ${done} / ${ds.length} 天</b><div class="bar"><i style="width:${done / ds.length * 100}%"></i></div>
-    <div class="note">累计 ${hm(total)} · 超时 ${hm(ot)} · 垫付 ¥${yen.toLocaleString()}</div></div>
-    <div class="tabs"><button data-t="work" class="${tab === 'work' ? 'on' : ''}">每日工时</button><button data-t="exp" class="${tab === 'exp' ? 'on' : ''}">垫付费用</button></div>`;
+  const prog = `<div class="progress"><b>工时已完整填 ${done} / ${ds.length} 天</b><div class="bar"><i style="width:${done / ds.length * 100}%"></i></div>
+    <div class="note">累计 ${hm(total)} · 超时 ${hm(ot)}</div></div>`;
+  let h = `<div class="who"><div><small>当前填写人</small><b>${esc(me.driverName)}</b></div><button id="switch">不是我？切换</button></div>
+    <div class="tabs"><button data-t="work" class="${tab === 'work' ? 'on' : ''}">每日工时</button><button data-t="exp" class="${tab === 'exp' ? 'on' : ''}">垫付费用</button><button data-t="sub" class="${tab === 'sub' ? 'on' : ''}">提交</button></div>`;
   if (tab === 'work') {
-    h += ds.map((d) => { const e = entryOf(d), [t, c] = entryState(e);
+    h += prog + ds.map((d) => { const e = entryOf(d), [t, c] = entryState(e);
       const s = e ? `${e.startTime || '--'} → ${e.endTime || '--'}${e.nextDay ? '（次日）' : ''}${e.overtimeMinutes ? ' · 超时' + hm(e.overtimeMinutes) : ''}` : '点这里填写';
       return `<button class="day" data-d="${d}"><div><div class="d">${label(d)}</div><div class="s">${esc(s)}</div></div><span class="tag ${c}">${esc(t)}</span></button>`; }).join('')
       + `<div class="progress" style="margin-top:16px"><b>📋 工时签字凭证照片，可上传多张</b>
       <div class="thumbs">${sheets.length ? sheets.map((f, i) => `<span>已传 ${i + 1}</span>`).join('') : '<span style="background:#fbeee0;color:#b26a1b">还没有上传</span>'}</div>
-      <label class="pick" style="margin-top:12px"><input type="file" id="sheetph" accept="image/*" multiple>📷 拍照 / 选择照片</label></div>` + submitBlock();
+      <label class="pick" style="margin-top:12px"><input type="file" id="sheetph" accept="image/*" multiple>📷 拍照 / 选择照片</label></div>`;
+  } else if (tab === 'exp') {
+    h += `<div class="progress"><b>垫付合计 ¥${yen.toLocaleString()}</b><div class="note">共 ${expenses.length} 笔。没有垫付就不用填。</div></div><button class="btn gold" id="addx" style="margin-bottom:12px">＋ 添加一笔垫付</button>`
+      + expenses.map((e) => `<button class="day" data-x="${e.id}"><div><div class="d">¥${(e.amountYen || 0).toLocaleString()} · ${esc(e.category)}</div><div class="s">${label(e.date)} · ${esc(e.description)}</div></div><span class="tag ${e.incomplete ? 'warn' : 'ok'}">${e.incomplete ? '缺票据' : '已保存'}</span></button>`).join('');
   } else {
-    h += (expenses.length ? expenses.map((e) => `<button class="day" data-x="${e.id}"><div><div class="d">¥${(e.amountYen || 0).toLocaleString()} · ${esc(e.category)}</div><div class="s">${label(e.date)} · ${esc(e.description)}</div></div><span class="tag ${e.incomplete ? 'warn' : 'ok'}">${e.incomplete ? '缺票据' : '已提交'}</span></button>`).join('')
-      : '<p class="center muted">还没有垫付记录。没有垫付就不用填。</p>') + submitBlock();
-    h += '<button class="btn gold fab" id="addx">＋ 添加一笔垫付</button>';
+    const miss = ds.filter((d) => { const e = entryOf(d); return !isRest(e) && (!e || e.incomplete); }).length;
+    h += `<div class="progress"><b>提交前核对</b>
+      <div class="note">工时：已填 ${done} / ${ds.length} 天${miss ? `，还有 ${miss} 天未填完` : ''}</div>
+      <div class="note">签字凭证照片：${sheets.length ? `已传 ${sheets.length} 张` : '尚未上传'}</div>
+      <div class="note">垫付：${expenses.length} 笔，合计 ¥${yen.toLocaleString()}</div></div>` + submitBlock();
   }
   $('#app').innerHTML = h;
   document.querySelectorAll('.tabs button').forEach((b) => b.onclick = () => { tab = b.dataset.t; render(); window.scrollTo(0, 0); });
