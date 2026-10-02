@@ -92,7 +92,7 @@ async function uploadFile(file, kind, recordId) {
 
 function pickWho(msg) {
   const list = showTest ? [...ROSTER, ['driver-99', '测试账号（可忽略）']] : ROSTER;
-  $('#app').innerHTML = `<div class="hello">请选择你的名字</div><div class="note">${esc(msg || '只点你自己的名字。选错了别人的，会把别人的记录弄乱。')}</div><div class="pickgrid">${list.map(([id, n]) => `<button data-id="${id}">${esc(n)}</button>`).join('')}</div>`;
+  $('#app').innerHTML = `<div class="hello">请选择你的名字</div><div class="note">${esc(msg || '只点你自己的名字。选错了别人的，会把别人的记录弄乱。')}</div><div class="pickgrid">${list.map(([id, n]) => `<button data-id="${id}">${esc(n)}</button>`).join('')}</div><p class="center" style="margin:28px 0 8px"><a href="admin.html" style="color:#8B6914;font-size:13px;text-decoration:none;border-bottom:1px solid #d8cfb8">管理员入口</a></p>`;
   document.querySelectorAll('.pickgrid button').forEach((b) => b.onclick = async () => {
     const name = b.textContent;
     if (!confirm(`你是「${name}」本人吗？`)) return;
