@@ -15,7 +15,7 @@ button.btn.ghost{background:#fff;color:var(--gold);border:1px solid var(--gold)}
 button.sm{padding:5px 10px;font-size:13px;border-radius:8px;border:1px solid var(--line);background:#fff;cursor:pointer}
 input{padding:10px;border:1px solid var(--line);border-radius:10px;font-size:15px;width:100%}
 table{width:100%;border-collapse:collapse}th,td{padding:9px 8px;border-bottom:1px solid #eee;text-align:left;vertical-align:top;font-size:14px}
-th{background:var(--soft);font-size:13px}tr.click{cursor:pointer}tr.click:hover{background:#faf3e3}
+th{background:var(--soft);font-size:13px}tr.click{cursor:pointer}tr.bk td{padding-top:0;font-size:12px}table.ov td{padding:9px 6px}main{overflow-x:hidden}tr.click:hover{background:#faf3e3}
 .tag{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;background:var(--soft);color:var(--dark)}
 .tag.ok{background:#e3f3e9;color:var(--ok)}.tag.bad{background:#fbe5e1;color:var(--bad)}.tag.warn{background:#fbeee0;color:#b26a1b}
 .muted{color:#7a7a7a;font-size:13px}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
@@ -48,12 +48,12 @@ async function home(){
  const sub=ds.filter(d=>d.submittedAt).length;
  $('#app').innerHTML=`<div class="card"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px"><b style="font-size:17px">提交进度：${sub} / ${ds.length} 人已提交</b><button id="refresh" style="border:1px solid var(--gold);background:#fff;color:var(--gold);border-radius:999px;padding:4px 14px;font-size:13px;cursor:pointer;white-space:nowrap">刷新</button></div><div class="row">
   <button class="btn ghost" id="csv">导出工时明细</button><button class="btn ghost" id="csv2">导出垫付明细</button><button class="btn" id="zip">下载全部原件 (ZIP)</button></div><div class="muted" id="zipmsg" style="margin-top:6px">原件按“司机名/工作签字表”“司机名/垫付票据”分文件夹。</div></div>
- <div class="card" style="padding:0;overflow:auto"><table><tr><th>司机</th><th>提交</th><th>工时</th><th>累计 / 超时</th><th>垫付</th><th>还缺</th></tr>
+ <div class="card" style="padding:0;overflow:auto"><table class="ov"><tr><th>司机</th><th>提交</th><th>工时</th><th>垫付</th></tr>
  ${ds.map(d=>`<tr class="click" data-id="${d.id}"><td><b>${esc(d.name)}</b><div class="muted">${esc(d.group)}</div></td>
   <td>${d.submittedAt?`<span class="tag ok">已提交</span><div class="muted">${fmt(d.submittedAt)}${d.times>1?` · 共${d.times}次`:''}</div>`:'<span class="tag warn">未提交</span>'}</td>
-  <td>${d.filledDays} / ${d.totalDays} 天</td><td>${hm(d.minutes)}<div class="muted">超时 ${hm(d.overtimeMinutes)}</div></td>
-  <td>${d.expenseCount} 笔<div class="muted">¥${d.amountYen.toLocaleString()}</div></td>
-  <td>${d.blockers.length?d.blockers.map(b=>`<div class="muted">• ${esc(b)}</div>`).join(''):'<span class="tag ok">齐全</span>'}</td></tr>`).join('')}</table></div>`;
+  <td>${d.filledDays} / ${d.totalDays} 天<div class="muted">共 ${hm(d.minutes)}</div><div class="muted">超时 ${hm(d.overtimeMinutes)}</div></td>
+  <td><b>${d.expenseCount} 笔</b><div class="muted">¥${d.amountYen.toLocaleString()}</div></td></tr>
+  ${d.blockers.length?`<tr class="click bk" data-id="${d.id}"><td colspan="4">${d.blockers.map(b=>`<span class="muted">• ${esc(b)}</span>`).join('　')}</td></tr>`:''}`).join('')}</table></div>`;
  document.querySelectorAll('tr.click').forEach(r=>r.onclick=()=>detail(r.dataset.id));
 
  const stz={draft:'已填写',needs_fix:'退回修改',approved:'已确认'};
@@ -83,11 +83,11 @@ async function detail(id){
  const [en,ex,sh]=await Promise.all([api('/api/entries'),api('/api/expenses'),api('/api/sheets?driverId='+id)]);
  const E=new Map(en.records.filter(r=>r.driverId===id).map(r=>[r.date,r])),X=ex.records.filter(r=>r.driverId===id).sort((a,b)=>a.date.localeCompare(b.date));
  $('#app').innerHTML=`<div class="row" style="margin-bottom:10px"><button class="sm" id="back">← 返回</button><b style="font-size:18px">${esc(d.name)}</b>${d.submittedAt?`<span class="tag ok">已提交 ${fmt(d.submittedAt)}</span>`:'<span class="tag warn">未提交</span>'}</div>
- <div class="card"><b>每日工时</b><div class="muted">累计 ${hm(d.minutes)} · 超时 ${hm(d.overtimeMinutes)}</div><table><tr><th>日期</th><th>出库 → 归库</th><th>时长 / 超时</th><th>备注</th><th>状态</th></tr>
- ${data.days.map(day=>{const e=E.get(day);return e?`<tr><td>${lab(day)}</td><td>${e.startTime||'--'} → ${e.endTime||'--'}${e.nextDay?'（次日）':''}</td><td>${hm(e.minutes)}<div class="muted">${e.overtimeMinutes?'超时 '+hm(e.overtimeMinutes):''}</div></td><td>${esc(e.note)}</td>
+ <div class="card"><b>每日工时</b><div class="muted">累计 ${hm(d.minutes)} · 超时 ${hm(d.overtimeMinutes)}</div><table><tr><th>日期</th><th>出库 → 归库</th><th>状态</th></tr>
+ ${data.days.map(day=>{const e=E.get(day);return e?`<tr><td>${lab(day)}</td><td>${e.startTime||'--'} → ${e.endTime||'--'}${e.nextDay?'（次日）':''}<div class="muted">${e.minutes==null?'':hm(e.minutes)}${e.overtimeMinutes?' · 超时 '+hm(e.overtimeMinutes):''}</div>${e.note?`<div class="muted">${esc(e.note)}</div>`:''}</td>
   <td>${e.status==='needs_fix'?'<span class="tag bad">已退回</span>':e.status==='approved'?'<span class="tag ok">已确认</span>':''}<div class="muted">${esc(e.reviewComment)}</div>
   ${e.status!=='approved'?`<button class="sm" data-rv="entry:${e.id}:needs_fix">退回修改</button> `:''}${e.status!=='approved'&&e.startTime&&e.endTime?`<button class="sm" data-rv="entry:${e.id}:approved">确认</button>`:''}</td></tr>`
-  :`<tr><td>${lab(day)}</td><td colspan="4" class="muted">未填</td></tr>`}).join('')}</table></div>
+  :`<tr><td>${lab(day)}</td><td colspan="2" class="muted">未填</td></tr>`}).join('')}</table></div>
  <div class="card"><b>工时签字凭证照片（${sh.sheets.length} 张）</b><div class="thumbs" id="sheets" style="margin-top:8px"></div></div>
  <div class="card"><b>垫付明细（${X.length} 笔 · ¥${X.reduce((a,x)=>a+x.amountYen,0).toLocaleString()}）</b>
  ${X.length?X.map(x=>`<div style="padding:10px 0;border-top:1px solid #eee"><div class="row"><b>¥${x.amountYen.toLocaleString()}</b><span>${esc(x.category)}</span><span class="muted">${lab(x.date)} · ${esc(x.description)}</span>
