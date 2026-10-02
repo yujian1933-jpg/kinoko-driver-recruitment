@@ -143,7 +143,6 @@ function submitBlock() {
   if (submittedAt) return `<div class="done">✅ 已提交<small>提交时间：${fmtTime(submittedAt)}。已提交的内容不能再修改；如需修改，请联系公司。</small></div>`;
   const bl = blockers();
   return `<div class="warnbox"><b>提交前请注意</b><div>所有内容全部填写完并确认无误后，再点击提交。<u>提交后不可再修改。</u></div></div>`
-    + (bl.length ? `<div class="blockers"><b>还不能提交，请先补完：</b>${bl.map((t) => `<div>• ${esc(t)}</div>`).join('')}</div>` : '')
     + `<div class="submitbox"><button class="btn" id="submit" ${bl.length ? 'disabled' : ''}>提交</button><div class="note" style="text-align:center">${bl.length ? '带 * 的必填项和照片都补完后，才能提交。' : '全部内容已填完，确认无误后可以提交。'}</div></div>`;
 }
 function blockers() {
@@ -182,11 +181,13 @@ function render() {
     h += `<div class="progress"><b>垫付合计 ¥${yen.toLocaleString()}</b><div class="note">共 ${expenses.length} 笔。没有垫付就不用填。</div></div>${submittedAt ? '' : '<button class="btn gold" id="addx" style="margin-bottom:12px">＋ 添加一笔垫付</button>'}`
       + expenses.map((e) => `<button class="day" data-x="${e.id}"><div><div class="d">¥${(e.amountYen || 0).toLocaleString()} · ${esc(e.category)}</div><div class="s">${label(e.date)} · ${esc(e.description)}</div></div><span class="tag ${e.incomplete ? 'warn' : 'ok'}">${e.incomplete ? '缺票据' : '已保存'}</span></button>`).join('');
   } else {
-    const miss = ds.filter((d) => { const e = entryOf(d); return !isRest(e) && (!e || e.incomplete); }).length;
+    const missD = ds.filter((d) => { const e = entryOf(d); return !isRest(e) && (!e || e.incomplete); });
+    const nr = expenses.filter((x) => x.incomplete).length;
+    const ok = (b, t) => `<div class="chk ${b ? 'ok' : 'no'}"><span>${b ? '✓' : '✗'}</span><div>${t}</div></div>`;
     h += `<div class="progress"><b>提交前核对</b>
-      <div class="note">工时：已填 ${done} / ${ds.length} 天${miss ? `，还有 ${miss} 天未填完` : ''}</div>
-      <div class="note">签字凭证照片：${sheets.length ? `已传 ${sheets.length} 张` : '尚未上传'}</div>
-      <div class="note">垫付：${expenses.length} 笔，合计 ¥${yen.toLocaleString()}</div></div>` + submitBlock();
+      ${ok(!missD.length, `工时：已填 ${done} / ${ds.length} 天${missD.length ? `<small>未填：${missD.slice(0, 8).map((d) => label(d).split(' ')[0]).join('、')}${missD.length > 8 ? ' 等' : ''}。没有出车的日子，请在当天点“这一天没有出车”。</small>` : ''}`)}
+      ${ok(sheets.length > 0, `签字凭证照片：${sheets.length ? `已传 ${sheets.length} 张` : '尚未上传<small>请回到“每日工时”页最底部上传。</small>'}`)}
+      ${ok(!nr, `垫付：${expenses.length} 笔，合计 ¥${yen.toLocaleString()}${nr ? `<small>有 ${nr} 笔缺票据照片。</small>` : ''}`)}</div>` + submitBlock();
   }
   $('#app').innerHTML = h; hydrate($('#app'));
   document.querySelectorAll('.tabs button').forEach((b) => b.onclick = () => { tab = b.dataset.t; render(); window.scrollTo(0, 0); });

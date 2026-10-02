@@ -68,3 +68,6 @@ input,select,textarea{width:100%;padding:12px;border:1px solid var(--line);borde
 .btn.delbox{background:#fdecea;color:#c0392b;border:1px solid #e3a69e;box-shadow:none;margin-top:12px}
 .who button{border:1px solid var(--gold);background:#fff;color:var(--gold);border-radius:999px;padding:5px 14px;font-size:13px}
 .btn.restbtn{background:#fff;color:var(--dark);border:1px dashed var(--gold);box-shadow:none;margin-top:10px;font-size:15px}
+.chk{display:flex;gap:8px;align-items:flex-start;margin-top:10px;line-height:1.5}.chk>span{flex:none;width:20px;height:20px;border-radius:50%;text-align:center;font-size:13px;line-height:20px;color:#fff;margin-top:1px}
+.chk.ok>span{background:#2e7d4f}.chk.no>span{background:#c0392b}.chk small{display:block;color:#c0392b;font-size:13px;margin-top:2px}
+.submitbox{margin-top:14px}
