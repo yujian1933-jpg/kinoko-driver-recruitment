@@ -25,7 +25,7 @@ th{background:var(--soft);font-size:13px}tr.click{cursor:pointer}tr.click:hover{
 #view{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;z-index:10;align-items:center;justify-content:center;padding:16px}#view img{max-width:100%;max-height:100%}
 @media(max-width:640px){th:nth-child(n+5),td:nth-child(n+5){display:none}}
 </style></head><body>
-<header><img src="logo-white.png" alt=""><div><b>Kinoko Club Concierge</b><small>亚运会司机工时与垫付 · 管理</small></div><span class="sp"></span><button id="refresh" class="pill" hidden>刷新</button><button id="out" class="pill" hidden>退出</button></header>
+<header><img src="logo-white.png" alt=""><div><b>Kinoko Club Concierge</b><small>亚运会司机工时与垫付 · 管理</small></div><span class="sp"></span><button id="out" class="pill" hidden>退出</button></header>
 <main id="app"></main><div id="toast"></div><div id="view"><img alt=""></div>
 <script>
 const API='https://cola-dispatch.marswave-543.workers.dev/app-b619b1/';
@@ -38,15 +38,15 @@ async function api(p,o={}){const r=await fetch(API+p.replace(/^\//,''),{...o,hea
 const hm=m=>m==null?'--':`${Math.floor(m/60)}小时${m%60}分钟`;
 const fmt=iso=>{if(!iso)return'';const d=new Date(new Date(iso).getTime()+9*36e5);return `${d.getUTCMonth()+1}月${d.getUTCDate()}日 ${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}`};
 const wk='日一二三四五六',lab=d=>{const x=new Date(d+'T00:00:00Z');return `${x.getUTCMonth()+1}月${x.getUTCDate()}日 周${wk[x.getUTCDay()]}`};
-function loginView(msg){$('#out').hidden=true;$('#refresh').hidden=true;$('#app').innerHTML=`<div class="card" style="max-width:380px;margin:40px auto"><h3 style="margin-top:0">管理员登录</h3><p class="muted">${esc(msg||'')}</p><div style="position:relative"><input id="pw" type="text" placeholder="管理员密码" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" style="-webkit-text-security:disc;padding-right:60px"><button type="button" id="eye" style="position:absolute;right:6px;top:6px;border:0;background:none;color:#8B6914;font-size:14px;padding:6px 8px">显示</button></div><div style="height:12px"></div><button class="btn" id="go" style="width:100%">登录</button></div><p style="text-align:center;margin:18px 0"><a href="./" style="color:#8B6914;font-size:14px;text-decoration:none;border-bottom:1px solid #d8cfb8">← 司机入口</a></p>`;
+function loginView(msg){$('#out').hidden=true;$('#app').innerHTML=`<div class="card" style="max-width:380px;margin:40px auto"><h3 style="margin-top:0">管理员登录</h3><p class="muted">${esc(msg||'')}</p><div style="position:relative"><input id="pw" type="text" placeholder="管理员密码" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" style="-webkit-text-security:disc;padding-right:60px"><button type="button" id="eye" style="position:absolute;right:6px;top:6px;border:0;background:none;color:#8B6914;font-size:14px;padding:6px 8px">显示</button></div><div style="height:12px"></div><button class="btn" id="go" style="width:100%">登录</button></div><p style="text-align:center;margin:18px 0"><a href="./" style="color:#8B6914;font-size:14px;text-decoration:none;border-bottom:1px solid #d8cfb8">← 司机入口</a></p>`;
  const go=async()=>{const b=$('#go');b.disabled=true;b.textContent='登录中，请稍候…';try{const r=await api('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:$('#pw').value.trim()})});tok=r.token;sessionStorage.setItem('kd-admin',tok);$('#app').innerHTML='<div class="card" style="max-width:380px;margin:40px auto"><p>登录成功，正在加载数据…</p></div>';home()}catch(e){b.disabled=false;b.textContent='登录';toast(e.message)}};
  $('#eye').onclick=()=>{const p=$('#pw'),on=p.style.webkitTextSecurity!=='none';p.style.webkitTextSecurity=on?'none':'disc';$('#eye').textContent=on?'隐藏':'显示'};$('#go').onclick=go;$('#pw').onkeydown=e=>e.key==='Enter'&&go()}
 async function home(){
- if(!tok)return loginView();$('#out').hidden=false;$('#refresh').hidden=false;
+ if(!tok)return loginView();$('#out').hidden=false;
  try{data=await api('/api/admin/overview')}catch(e){return loginView(e.message)}
  const ds=data.drivers.filter(d=>d.id!=='driver-99'||location.hash.includes('test'));
  const sub=ds.filter(d=>d.submittedAt).length;
- $('#app').innerHTML=`<div class="card"><div class="row"><b style="font-size:17px">提交进度：${sub} / ${ds.length} 人已提交</b><span class="sp" style="flex:1"></span>
+ $('#app').innerHTML=`<div class="card"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px"><b style="font-size:17px">提交进度：${sub} / ${ds.length} 人已提交</b><button id="refresh" style="border:1px solid var(--gold);background:#fff;color:var(--gold);border-radius:999px;padding:4px 14px;font-size:13px;cursor:pointer;white-space:nowrap">刷新</button></div><div class="row">
   <button class="btn ghost" id="csv">导出工时明细</button><button class="btn ghost" id="csv2">导出垫付明细</button><button class="btn" id="zip">下载全部原件 (ZIP)</button></div><div class="muted" id="zipmsg" style="margin-top:6px">原件按“司机名/工作签字表”“司机名/垫付票据”分文件夹。</div></div>
  <div class="card" style="padding:0;overflow:auto"><table><tr><th>司机</th><th>提交</th><th>工时</th><th>累计 / 超时</th><th>垫付</th><th>还缺</th></tr>
  ${ds.map(d=>`<tr class="click" data-id="${d.id}"><td><b>${esc(d.name)}</b><div class="muted">${esc(d.group)}</div></td>
