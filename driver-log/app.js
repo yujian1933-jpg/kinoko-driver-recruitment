@@ -53,6 +53,13 @@ function hydrate(root) {
     catch { el.classList.add('bad'); el.querySelector('img').replaceWith(Object.assign(document.createElement('span'), { textContent: '无法预览' })); }
   });
 }
+function localLightbox(src) {
+  const o = document.createElement('div'); o.className = 'lb';
+  o.innerHTML = `<img alt="" src="${src}"><div class="lbbar"><button class="lbb" id="lbclose">关闭</button></div>`;
+  document.body.appendChild(o);
+  o.querySelector('#lbclose').onclick = () => o.remove();
+  o.addEventListener('click', (e) => { if (e.target === o) o.remove(); });
+}
 function lightbox(id) {
   const o = document.createElement('div'); o.className = 'lb';
   o.innerHTML = `<img alt=""><div class="lbbar"><button class="lbb" id="lbclose">关闭</button>${submittedAt ? '' : '<button class="lbb del" id="lbdel">删除这张</button>'}</div>`;
@@ -71,6 +78,7 @@ async function delFile(id) {
 document.addEventListener('click', (e) => {
   const d = e.target.closest('[data-del]'); if (d) { e.preventDefault(); e.stopPropagation(); delFile(d.dataset.del); return; }
   const t = e.target.closest('.th[data-fid] img'); if (t) lightbox(t.closest('.th').dataset.fid);
+  const n = e.target.closest('.th:not([data-fid]) img'); if (n && n.src) localLightbox(n.src);
 }, true);
 
 async function shrink(file) {
