@@ -47,7 +47,7 @@ async function home(){
  const ds=data.drivers.filter(d=>d.id!=='driver-99'||location.hash.includes('test'));
  const sub=ds.filter(d=>d.submittedAt).length;
  $('#app').innerHTML=`<div class="card"><div class="row"><b style="font-size:17px">提交进度：${sub} / ${ds.length} 人已提交</b><span class="sp" style="flex:1"></span>
-  <button class="btn ghost" id="csv">导出工时明细</button><button class="btn ghost" id="csv2">导出垫付明细</button><button class="btn ghost" id="csv3">导出每人汇总</button><button class="btn" id="zip">下载全部原件 (ZIP)</button></div><div class="muted" id="zipmsg" style="margin-top:6px">原件按“司机名/工作签字表”“司机名/垫付票据”分文件夹。</div></div>
+  <button class="btn ghost" id="refresh">刷新最新数据</button><button class="btn ghost" id="csv">导出工时明细</button><button class="btn ghost" id="csv2">导出垫付明细</button><button class="btn" id="zip">下载全部原件 (ZIP)</button></div><div class="muted" id="zipmsg" style="margin-top:6px">原件按“司机名/工作签字表”“司机名/垫付票据”分文件夹。</div></div>
  <div class="card" style="padding:0;overflow:auto"><table><tr><th>司机</th><th>提交</th><th>工时</th><th>累计 / 超时</th><th>垫付</th><th>还缺</th></tr>
  ${ds.map(d=>`<tr class="click" data-id="${d.id}"><td><b>${esc(d.name)}</b><div class="muted">${esc(d.group)}</div></td>
   <td>${d.submittedAt?`<span class="tag ok">已提交</span><div class="muted">${fmt(d.submittedAt)}${d.times>1?` · 共${d.times}次`:''}</div>`:'<span class="tag warn">未提交</span>'}</td>
@@ -56,17 +56,25 @@ async function home(){
   <td>${d.blockers.length?d.blockers.map(b=>`<div class="muted">• ${esc(b)}</div>`).join(''):'<span class="tag ok">齐全</span>'}</td></tr>`).join('')}</table></div>`;
  document.querySelectorAll('tr.click').forEach(r=>r.onclick=()=>detail(r.dataset.id));
 
- const grp=Object.fromEntries(data.drivers.map(d=>[d.id,d.group]));
  const stz={draft:'已填写',needs_fix:'退回修改',approved:'已确认'};
  const cell=v=>{let s=v==null?'':String(v);if(/^[\s]*[=+\-@]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"'};
  const dl=(rows,name)=>save(new Blob(['\uFEFF'+rows.map(r=>r.map(cell).join(',')).join('\r\n')+'\r\n'],{type:'text/csv;charset=utf-8'}),name);
  const cmp=(x,y)=>x.driverId===y.driverId?x.date.localeCompare(y.date):x.driverId.localeCompare(y.driverId);
  const real=r=>r.driverId!=='driver-99'||location.hash.includes('test');
- $('#csv').onclick=async()=>{try{const r=(await api('/api/entries')).records.filter(real).sort(cmp);
-  dl([['司机姓名','组别','日期','出库时间','归库时间','是否跨天','工作时长','超时时长','工作分钟数','超时分钟数','备注','核对状态','退回原因','信息是否完整']].concat(r.map(e=>[e.driverName,grp[e.driverId]||'',e.date,e.startTime||'',e.endTime||'',e.nextDay?'是':'否',e.minutes==null?'':hm(e.minutes),e.overtimeMinutes==null?'':hm(e.overtimeMinutes),e.minutes==null?'':e.minutes,e.overtimeMinutes==null?'':e.overtimeMinutes,e.note,stz[e.status]||e.status,e.reviewComment,e.incomplete?'缺'+(e.missing||[]).map(m=>m==='startTime'?'出库时间':'归库时间').join('、'):'完整'])),'司机工时明细.csv')}catch(e){toast(e.message)}};
- $('#csv2').onclick=async()=>{try{const r=(await api('/api/expenses')).records.filter(real).sort(cmp);
-  dl([['司机姓名','组别','发生日期','费用类型','用途/地点','垫付金额（日元）','备注','票据张数','票据文件名','核对状态','退回原因','票据是否齐全']].concat(r.map(x=>[x.driverName,grp[x.driverId]||'',x.date,x.category,x.description,x.amountYen,x.note,(x.attachments||[]).length,(x.attachments||[]).map(f=>f.name).join('；'),stz[x.status]||x.status,x.reviewComment,x.incomplete?'缺票据':'齐全'])),'司机垫付明细.csv')}catch(e){toast(e.message)}};
- $('#csv3').onclick=()=>{dl([['司机姓名','组别','提交状态','提交时间','已填工时天数','应填天数','累计工作时长','累计超时时长','垫付笔数','垫付合计（日元）','签字工作表张数','还缺']].concat(ds.map(d=>[d.name,d.group,d.submittedAt?'已提交':'未提交',fmt(d.submittedAt),d.filledDays,d.totalDays,hm(d.minutes),hm(d.overtimeMinutes),d.expenseCount,d.amountYen,d.sheetCount,(d.blockers||[]).join('；')])),'司机每人汇总.csv')};
+ $('#csv').onclick=async()=>{try{const r=(await api('/api/entries')).records.filter(real);
+  const head=['日期','出库时间','归库时间','是否跨天','工作时长','超时时长','工作分钟数','超时分钟数','备注','核对状态','信息是否完整'];
+  const sheets=ds.map(d=>{const L=r.filter(e=>e.driverId===d.id).sort((x,y)=>x.date.localeCompare(y.date));
+   const rows=L.map(e=>[lab(e.date),e.startTime||'',e.endTime||'',e.nextDay?'是':'否',e.minutes==null?'':hm(e.minutes),e.overtimeMinutes==null?'':hm(e.overtimeMinutes),e.minutes==null?'':e.minutes,e.overtimeMinutes==null?'':e.overtimeMinutes,e.note,stz[e.status]||e.status,e.incomplete?'缺'+(e.missing||[]).map(m=>m==='startTime'?'出库时间':'归库时间').join('、'):'完整']);
+   const tm=L.reduce((s,e)=>s+(e.minutes||0),0),to=L.reduce((s,e)=>s+(e.overtimeMinutes||0),0);
+   return{name:d.name,head,rows,total:['合计（'+L.length+' 天）','','','',hm(tm),hm(to),tm,to,'','','']}});
+  save(buildXlsx(sheets),'司机工时明细.xlsx')}catch(e){toast(e.message)}};
+ $('#csv2').onclick=async()=>{try{const r=(await api('/api/expenses')).records.filter(real);
+  const head=['发生日期','费用类型','用途/地点','垫付金额（日元）','备注','票据张数','票据文件名','核对状态','票据是否齐全'];
+  const sheets=ds.map(d=>{const L=r.filter(e=>e.driverId===d.id).sort((x,y)=>x.date.localeCompare(y.date));
+   const rows=L.map(x=>[lab(x.date),x.category,x.description,x.amountYen,x.note,(x.attachments||[]).length,(x.attachments||[]).map(f=>f.name).join('；'),stz[x.status]||x.status,x.incomplete?'缺票据':'齐全']);
+   return{name:d.name,head,rows,total:['合计（'+L.length+' 笔）','','',L.reduce((s,x)=>s+x.amountYen,0),'',L.reduce((s,x)=>s+(x.attachments||[]).length,0),'','',''],yenCols:[3]}});
+  save(buildXlsx(sheets),'司机垫付明细.xlsx')}catch(e){toast(e.message)}};
+ $('#refresh').onclick=()=>home();
  $('#zip').onclick=makeZip}
 function save(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),4000)}
 async function blobUrl(id){const r=await api('/api/files/'+id,{raw:true});return URL.createObjectURL(await r.blob())}
@@ -97,6 +105,31 @@ $('#view').onclick=()=>$('#view').style.display='none';
 // ---- 本地打包 ZIP（不压缩，按司机名分文件夹）----
 const CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
 const crc32=b=>{let c=~0;for(let i=0;i<b.length;i++)c=CRC[(c^b[i])&255]^(c>>>8);return(~c)>>>0};
+
+function buildXlsx(sheets){
+ const X=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])).replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g,'');
+ const col=i=>{let s='';i++;while(i>0){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26)}return s};
+ const cell=(v,r,c,st)=>{const ref=col(c)+(r+1);if(typeof v==='number')return `<c r="${ref}" s="${st}"><v>${v}</v></c>`;return `<c r="${ref}" s="${st}" t="inlineStr"><is><t xml:space="preserve">${X(v)}</t></is></c>`};
+ const names=[];const files=[];
+ const used=new Set();
+ sheets.forEach((sh,k)=>{let nm=sh.name.replace(/[\[\]:*?\/\\]/g,'').slice(0,31)||('Sheet'+(k+1));while(used.has(nm))nm=nm.slice(0,28)+'_'+k;used.add(nm);names.push(nm);
+  const n=sh.head.length;const widths=sh.head.map((h,i)=>{let w=Math.max(h.length*2.2,10);for(const r of sh.rows.concat([sh.total]))w=Math.max(w,Math.min(40,String(r[i]==null?'':r[i]).length*1.9+2));return Math.round(w)});
+  let rows=`<row r="1" ht="24" customHeight="1">${sh.head.map((h,c)=>cell(h,0,c,1)).join('')}</row>`;
+  sh.rows.forEach((r,ri)=>{rows+=`<row r="${ri+2}">${r.map((v,c)=>cell(v,ri+1,c,(sh.yenCols||[]).includes(c)?3:0)).join('')}</row>`});
+  const tr=sh.rows.length+2;rows+=`<row r="${tr}">${sh.total.map((v,c)=>cell(v,tr-1,c,(sh.yenCols||[]).includes(c)?4:2)).join('')}</row>`;
+  const xml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"${k===0?' tabSelected="1"':''}><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="20"/><cols>${widths.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join('')}</cols><sheetData>${rows}</sheetData></worksheet>`;
+  files.push({name:`xl/worksheets/sheet${k+1}.xml`,data:new TextEncoder().encode(xml)})});
+ const E=s=>new TextEncoder().encode(s);const H='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+ const ns='http://schemas.openxmlformats.org/spreadsheetml/2006/main',rn='http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+ const bd='<border><left style="thin"><color rgb="FFBFBFBF"/></left><right style="thin"><color rgb="FFBFBFBF"/></right><top style="thin"><color rgb="FFBFBFBF"/></top><bottom style="thin"><color rgb="FFBFBFBF"/></bottom><diagonal/></border>';
+ const al='<alignment horizontal="center" vertical="center" wrapText="1"/>';
+ const styles=`${H}<styleSheet xmlns="${ns}"><numFmts count="1"><numFmt numFmtId="164" formatCode="&quot;¥&quot;#,##0"/></numFmts><fonts count="3"><font><sz val="11"/><name val="微软雅黑"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="微软雅黑"/></font><font><b/><sz val="11"/><name val="微软雅黑"/></font></fonts><fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF4472C4"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFD9E2F3"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>${bd}</borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="5"><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1">${al}</xf><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">${al}</xf><xf numFmtId="0" fontId="2" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">${al}</xf><xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1">${al}</xf><xf numFmtId="164" fontId="2" fillId="3" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">${al}</xf></cellXfs></styleSheet>`;
+ files.push({name:'[Content_Types].xml',data:E(`${H}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${names.map((_,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}</Types>`)});
+ files.push({name:'_rels/.rels',data:E(`${H}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${rn}/officeDocument" Target="xl/workbook.xml"/></Relationships>`)});
+ files.push({name:'xl/workbook.xml',data:E(`${H}<workbook xmlns="${ns}" xmlns:r="${rn}"><sheets>${names.map((n,i)=>`<sheet name="${X(n)}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join('')}</sheets></workbook>`)});
+ files.push({name:'xl/_rels/workbook.xml.rels',data:E(`${H}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${names.map((_,i)=>`<Relationship Id="rId${i+1}" Type="${rn}/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join('')}<Relationship Id="rId${names.length+1}" Type="${rn}/styles" Target="styles.xml"/></Relationships>`)});
+ files.push({name:'xl/styles.xml',data:E(styles)});
+ const z=buildZip(files);return z instanceof Blob?new Blob([z],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}):z}
 function buildZip(files){const enc=new TextEncoder(),parts=[],cen=[];let off=0;
  for(const f of files){const nm=enc.encode(f.name),crc=crc32(f.data),sz=f.data.length;
   const lh=new DataView(new ArrayBuffer(30));lh.setUint32(0,0x04034b50,true);lh.setUint16(4,20,true);lh.setUint16(6,0x0800,true);lh.setUint32(14,crc,true);lh.setUint32(18,sz,true);lh.setUint32(22,sz,true);lh.setUint16(26,nm.length,true);
