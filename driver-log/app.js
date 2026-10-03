@@ -11,7 +11,7 @@ let teamKey = null, showTest = false;
 (function initToken() {
   const km = /[#&]k=([^&]+)/.exec(location.hash);
   if (km) { localStorage.setItem('kd-key', decodeURIComponent(km[1])); if (/[#&]test=1/.test(location.hash)) localStorage.setItem('kd-test', '1'); else localStorage.removeItem('kd-test'); history.replaceState(null, '', location.pathname); }
-  teamKey = localStorage.getItem('kd-key'); showTest = localStorage.getItem('kd-test') === '1';
+  teamKey = localStorage.getItem('kd-key') || '1e83c542982bc690fdf7506d'; showTest = localStorage.getItem('kd-test') === '1';
   token = localStorage.getItem('kd-tk');
 })();
 
