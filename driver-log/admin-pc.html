@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
+<title>Kinoko Club Concierge · 管理</title>
+<link rel="icon" href="logo-gold.png">
+<style>
+:root{--ink:#1a2a3a;--gold:#8B6914;--dark:#6b4f10;--line:#d8cfb8;--bg:#FDF8EE;--soft:#efe3cc;--bad:#c0392b;--ok:#2e7d4f}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
+header{background:var(--gold);color:#fff;padding:12px 18px 12px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:5}
+header img{width:34px;height:34px}header b{font-size:16px}header small{display:block;opacity:.85;font-size:12px}header .sp{flex:1}
+header .pill{display:inline-block;margin-right:6px;background:transparent;color:#fff;border:1px solid rgba(255,255,255,.65);border-radius:999px;padding:4px 12px;font-size:13px;line-height:1.4;text-decoration:none;margin-left:8px;cursor:pointer;white-space:nowrap}header .pill[hidden]{display:none}header .pill:active{background:rgba(255,255,255,.2)}header small{opacity:.9}
+main{max-width:980px;margin:0 auto;padding:16px}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+button.btn{background:var(--gold);color:#fff;border:0;border-radius:10px;padding:10px 16px;font-size:15px;font-weight:600;cursor:pointer}
+button.btn.ghost{background:#fff;color:var(--gold);border:1px solid var(--gold)}button.btn:disabled{opacity:.5}
+button.sm{padding:5px 10px;font-size:13px;border-radius:8px;border:1px solid var(--line);background:#fff;cursor:pointer}
+input{padding:10px;border:1px solid var(--line);border-radius:10px;font-size:15px;width:100%}
+table{width:100%;border-collapse:collapse}th,td{padding:9px 8px;border-bottom:1px solid #eee;text-align:left;vertical-align:top;font-size:14px}
+th{background:var(--soft);font-size:13px}tr.click{cursor:pointer}tr.tot td{background:var(--soft);border-top:2px solid var(--line)}table.ov td{padding:9px 6px}main{overflow-x:hidden}tr.click:hover{background:#faf3e3}
+.tag{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;background:var(--soft);color:var(--dark)}
+.tag.ok{background:#e3f3e9;color:var(--ok)}.tag.bad{background:#fbe5e1;color:var(--bad)}.tag.warn{background:#fbeee0;color:#b26a1b}
+.muted{color:#7a7a7a;font-size:13px}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.thumbs{display:flex;gap:8px;flex-wrap:wrap}.thumbs a{display:block;border:1px solid var(--line);border-radius:8px;padding:2px;background:#fff}
+.thumbs img{height:90px;display:block;border-radius:6px}
+#toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:#6b4f10;color:#fdf8ee;padding:9px 18px;border-radius:999px;font-size:14px;box-shadow:0 6px 18px rgba(60,40,5,.28);display:none;z-index:9}
+#view{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;z-index:10;align-items:center;justify-content:center;padding:16px}#view img{max-width:100%;max-height:100%}
+@media(max-width:640px){th:nth-child(n+5),td:nth-child(n+5){display:none}}
+</style></head><body>
+<header><img src="logo-white.png" alt=""><div><b>Kinoko Club Concierge</b><small>亚运会司机工时与垫付 · 管理</small></div><span class="sp"></span><button id="out" class="pill" hidden>退出</button></header>
+<main id="app"></main><div id="toast"></div><div id="view"><img alt=""></div>
+<script>
+const API='https://cola-dispatch.marswave-543.workers.dev/app-b619b1/';
+const $=(q,r=document)=>r.querySelector(q);let tok=sessionStorage.getItem('kd-admin'),data=null;
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const toast=m=>{const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(t._t);t._t=setTimeout(()=>t.style.display='none',2800)};
+async function api(p,o={}){const r=await fetch(API+p.replace(/^\//,''),{...o,headers:{...(o.headers||{}),...(tok?{Authorization:'Bearer '+tok}:{})}});
+ if(o.raw){if(!r.ok)throw new Error('下载失败 '+r.status);return r}
+ const j=await r.json().catch(()=>({}));if(!r.ok||j.ok===false){if(r.status===401&&tok){sessionStorage.removeItem('kd-admin');tok=null}throw new Error(j.error||('错误 '+r.status))}return j}
+const hm=m=>m==null?'--':`${Math.floor(m/60)}小时${m%60}分钟`;
+const fmt=iso=>{if(!iso)return'';const d=new Date(new Date(iso).getTime()+9*36e5);return `${d.getUTCMonth()+1}月${d.getUTCDate()}日 ${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}`};
+const wk='日一二三四五六',lab=d=>{const x=new Date(d+'T00:00:00Z');return `${x.getUTCMonth()+1}月${x.getUTCDate()}日 周${wk[x.getUTCDay()]}`};
+function loginView(msg){$('#out').hidden=true;$('#app').innerHTML=`<div class="card" style="max-width:380px;margin:40px auto"><h3 style="margin-top:0">管理员登录</h3><p class="muted">${esc(msg||'')}</p><div style="position:relative"><input id="pw" type="password" placeholder="管理员密码" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" style="padding-right:64px"><button type="button" id="eye" style="position:absolute;right:6px;top:6px;border:0;background:none;color:#8B6914;font-size:14px;padding:6px 8px">显示</button></div><div style="height:12px"></div><button class="btn" id="go" style="width:100%">登录</button></div><p style="text-align:center;margin:18px 0"><a href="./" style="color:#8B6914;font-size:14px;text-decoration:none;border-bottom:1px solid #d8cfb8">← 司机入口</a></p>`;
+ const go=async()=>{const b=$('#go');b.disabled=true;b.textContent='登录中，请稍候…';try{const r=await api('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:PW.trim()})});tok=r.token;sessionStorage.setItem('kd-admin',tok);$('#app').innerHTML='<div class="card" style="max-width:380px;margin:40px auto"><p>登录成功，正在加载数据…</p></div>';home()}catch(e){b.disabled=false;b.textContent='登录';toast(e.message+'（已输入 '+PW.trim().length+' 位）')}};
+ let PW='',shown=false;const pw=$('#pw'),DOT='●';
+const paint=c=>{pw.value=shown?PW:DOT.repeat(PW.length);if(c!=null)try{pw.setSelectionRange(c,c)}catch(_){}};
+let comp=false;pw.addEventListener('compositionstart',()=>comp=true);pw.addEventListener('compositionend',()=>{comp=false;sync()});
+const DESK=true;
+if(DESK){pw.type='password';pw.removeAttribute('inputmode');pw.autocomplete='current-password'}
+function sync(){if(DESK){PW=pw.value;return}if(comp)return;const cur=pw.value,c=pw.selectionStart??cur.length;
+ if(shown){PW=cur;return}
+ const k=[...cur.slice(0,c)].filter(x=>x!==DOT).length,typed=[...cur.slice(0,c)].filter(x=>x!==DOT).join(''),rest=[...cur.slice(c)].filter(x=>x!==DOT).join('');
+ const r=PW.length+typed.length-cur.length,pos=c-typed.length;
+ PW=PW.slice(0,Math.max(0,pos))+typed+rest+PW.slice(Math.max(0,pos)+Math.max(0,r));
+ paint(pos+typed.length)}
+pw.addEventListener('input',sync);
+$('#eye').onpointerdown=e=>e.preventDefault();$('#eye').onclick=()=>{shown=!shown;if(DESK){pw.type=shown?'text':'password'}else paint(PW.length);$('#eye').textContent=shown?'隐藏':'显示'};$('#go').onclick=go;$('#pw').onkeydown=e=>e.key==='Enter'&&go()}
+async function home(){
+ if(!tok)return loginView();$('#out').hidden=false;
+ try{data=await api('/api/admin/overview')}catch(e){return loginView(e.message)}
+ const ds=data.drivers.filter(d=>d.id!=='driver-99'||location.hash.includes('test'));
+ const sub=ds.filter(d=>d.submittedAt).length;
+ $('#app').innerHTML=`<div class="card"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px"><b style="font-size:17px">提交进度：${sub} / ${ds.length} 人已提交</b><span style="display:flex;gap:6px"><button id="pins" style="border:1px solid var(--gold);background:#fff;color:var(--gold);border-radius:999px;padding:4px 14px;font-size:13px;cursor:pointer;white-space:nowrap">司机密码</button><button id="refresh" style="border:1px solid var(--gold);background:#fff;color:var(--gold);border-radius:999px;padding:4px 14px;font-size:13px;cursor:pointer;white-space:nowrap">刷新</button></span></div><div class="row">
+  <button class="btn ghost" id="csv">导出工时明细</button><button class="btn ghost" id="csv2">导出垫付明细</button><button class="btn" id="zip">下载全部原件 (ZIP)</button></div><div class="muted" id="zipmsg" style="margin-top:6px">原件按“司机名/工作签字表”“司机名/垫付票据”分文件夹。</div></div>
+ <div class="card" style="padding:0;overflow:auto"><table class="ov"><tr><th>司机</th><th>提交</th><th>累计超时</th><th>累计垫付金额</th></tr>
+ ${ds.map(d=>`<tr class="click" data-id="${d.id}"><td><b>${esc(d.name)}</b><div class="muted">${esc(d.group)}</div></td><td>${d.submittedAt?`<span class="tag ok">已提交</span>`:'<span class="tag warn">未提交</span>'}</td>
+  <td>${hm(d.overtimeMinutes)}</td>
+  <td>¥${d.amountYen.toLocaleString()}<div class="muted">${d.expenseCount} 笔</div></td></tr>`).join('')}
+ <tr class="tot"><td><b>总计</b></td><td>${sub} / ${ds.length}</td><td><b>${hm(ds.reduce((s,d)=>s+d.overtimeMinutes,0))}</b></td><td><b>¥${ds.reduce((s,d)=>s+d.amountYen,0).toLocaleString()}</b><div class="muted">${ds.reduce((s,d)=>s+d.expenseCount,0)} 笔</div></td></tr></table></div>`;
+ document.querySelectorAll('tr.click').forEach(r=>r.onclick=()=>detail(r.dataset.id));
+
+ const stz={draft:'已填写',needs_fix:'退回修改',approved:'已确认'};
+ const cell=v=>{let s=v==null?'':String(v);if(/^[\s]*[=+\-@]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"'};
+ const dl=(rows,name)=>save(new Blob(['\uFEFF'+rows.map(r=>r.map(cell).join(',')).join('\r\n')+'\r\n'],{type:'text/csv;charset=utf-8'}),name);
+ const cmp=(x,y)=>x.driverId===y.driverId?x.date.localeCompare(y.date):x.driverId.localeCompare(y.driverId);
+ const real=r=>r.driverId!=='driver-99'||location.hash.includes('test');
+ $('#csv').onclick=async()=>{try{const r=(await api('/api/entries')).records.filter(real);
+  const head=['日期','出库时间','归库时间','是否跨天','工作时长','超时时长','工作分钟数','超时分钟数','备注','核对状态','信息是否完整'];
+  const sheets=ds.map(d=>{const L=r.filter(e=>e.driverId===d.id).sort((x,y)=>x.date.localeCompare(y.date));
+   const rows=L.map(e=>[lab(e.date),e.startTime||'',e.endTime||'',e.nextDay?'是':'否',e.minutes==null?'':hm(e.minutes),e.overtimeMinutes==null?'':hm(e.overtimeMinutes),e.minutes==null?'':e.minutes,e.overtimeMinutes==null?'':e.overtimeMinutes,e.note,stz[e.status]||e.status,(!e.startTime&&!e.endTime&&/^休息/.test(e.note||''))?'休息（无需填写）':e.incomplete?'缺'+(e.missing||[]).map(m=>m==='startTime'?'出库时间':'归库时间').join('、'):'完整']);
+   const tm=L.reduce((s,e)=>s+(e.minutes||0),0),to=L.reduce((s,e)=>s+(e.overtimeMinutes||0),0);
+   return{name:d.name,head,rows,total:['合计（'+L.length+' 天）','','','',hm(tm),hm(to),tm,to,'','','']}});
+  save(buildXlsx(sheets),'司机工时明细.xlsx')}catch(e){toast(e.message)}};
+ $('#csv2').onclick=async()=>{try{const r=(await api('/api/expenses')).records.filter(real);
+  const head=['发生日期','费用类型','用途/地点','垫付金额（日元）','备注','票据张数','票据文件名','核对状态','票据是否齐全'];
+  const sheets=ds.map(d=>{const L=r.filter(e=>e.driverId===d.id).sort((x,y)=>x.date.localeCompare(y.date));
+   const rows=L.map(x=>[lab(x.date),x.category,x.description,x.amountYen,x.note,(x.attachments||[]).length,(x.attachments||[]).map(f=>f.name).join('；'),stz[x.status]||x.status,x.incomplete?'缺票据':'齐全']);
+   return{name:d.name,head,rows,total:['合计（'+L.length+' 笔）','','',L.reduce((s,x)=>s+x.amountYen,0),'',L.reduce((s,x)=>s+(x.attachments||[]).length,0),'','',''],yenCols:[3]}});
+  save(buildXlsx(sheets),'司机垫付明细.xlsx')}catch(e){toast(e.message)}};
+ $('#refresh').onclick=()=>home();$('#pins').onclick=pinsView;
+ $('#zip').onclick=makeZip}
+function save(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),4000)}
+async function blobUrl(id){const r=await api('/api/files/'+id,{raw:true});return URL.createObjectURL(await r.blob())}
+async function pinsView(){
+ $('#app').innerHTML='<p class="muted">加载中…</p>';
+ let r;try{r=await api('/api/admin/pins')}catch(e){toast(e.message);return home()}
+ const list=r.pins.filter(p=>p.id!=='driver-99'||location.hash.includes('test'));
+ $('#app').innerHTML=`<div class="row" style="margin-bottom:10px"><button class="sm" id="back">← 返回</button><b style="font-size:18px">司机密码</b></div><div class="card"><div class="muted" style="margin-bottom:6px">司机选自己名字后，要输入下面对应的 4 位数字。请单独告诉每位司机，不要发群里。</div><table><tr><th>司机</th><th>密码</th><th></th></tr>${list.map(p=>`<tr><td><b>${esc(p.name)}</b><div class="muted">${esc(p.group)}</div></td><td style="font-size:20px;letter-spacing:3px;font-weight:700" data-pin="${p.id}">${esc(p.pin||'')}</td><td><button class="sm" data-rp="${p.id}">换一个</button></td></tr>`).join('')}</table></div>`;
+ $('#back').onclick=home;
+ document.querySelectorAll('[data-rp]').forEach(b=>b.onclick=async()=>{if(!confirm('换一个新密码？该司机旧密码立即作废（已登录的手机不受影响）。'))return;try{const x=await api('/api/admin/pins/reset',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({driverId:b.dataset.rp})});document.querySelector(`[data-pin="${b.dataset.rp}"]`).textContent=x.pin;toast('已更换')}catch(e){toast(e.message)}})}
+async function detail(id){
+ const d=data.drivers.find(x=>x.id===id);$('#app').innerHTML='<p class="muted">加载中…</p>';
+ const [en,ex,sh]=await Promise.all([api('/api/entries'),api('/api/expenses'),api('/api/sheets?driverId='+id)]);
+ const E=new Map(en.records.filter(r=>r.driverId===id).map(r=>[r.date,r])),X=ex.records.filter(r=>r.driverId===id).sort((a,b)=>a.date.localeCompare(b.date));
+ $('#app').innerHTML=`<div class="row" style="margin-bottom:10px"><button class="sm" id="back">← 返回</button><b style="font-size:18px">${esc(d.name)}</b>${d.submittedAt?`<span class="tag ok">已提交 ${fmt(d.submittedAt)}</span>`:'<span class="tag warn">未提交</span>'}${d.submittedAt?'<button class="sm" id="rst" style="margin-left:auto">重置提交（允许司机修改）</button>':''}</div>
+ <div class="card"><b>每日工时</b><div class="muted">累计 ${hm(d.minutes)} · 超时 ${hm(d.overtimeMinutes)}</div><table><tr><th>日期</th><th>出库 → 归库</th><th>状态</th></tr>
+ ${data.days.map(day=>{const e=E.get(day);return e?`<tr><td>${lab(day)}</td><td>${e.startTime||'--'} → ${e.endTime||'--'}${e.nextDay?'（次日）':''}<div class="muted">${e.minutes==null?'':hm(e.minutes)}${e.overtimeMinutes?' · 超时 '+hm(e.overtimeMinutes):''}</div>${e.note?`<div class="muted">${esc(e.note)}</div>`:''}</td>
+  <td>${e.status==='needs_fix'?'<span class="tag bad">已退回</span>':e.status==='approved'?'<span class="tag ok">已确认</span>':''}<div class="muted">${esc(e.reviewComment)}</div>
+  ${e.status!=='approved'?`<button class="sm" data-rv="entry:${e.id}:needs_fix">退回修改</button> `:''}${e.status!=='approved'&&e.startTime&&e.endTime?`<button class="sm" data-rv="entry:${e.id}:approved">确认</button>`:''}</td></tr>`
+  :`<tr><td>${lab(day)}</td><td colspan="2" class="muted">未填</td></tr>`}).join('')}</table></div>
+ <div class="card"><b>工时签字凭证照片（${sh.sheets.length} 张）</b><div class="thumbs" id="sheets" style="margin-top:8px"></div></div>
+ <div class="card"><b>垫付明细（${X.length} 笔 · ¥${X.reduce((a,x)=>a+x.amountYen,0).toLocaleString()}）</b>
+ ${X.length?X.map(x=>`<div style="padding:10px 0;border-top:1px solid #eee"><div class="row"><b>¥${x.amountYen.toLocaleString()}</b><span>${esc(x.category)}</span><span class="muted">${lab(x.date)} · ${esc(x.description)}</span>
+  ${x.incomplete?'<span class="tag warn">缺票据</span>':''}${x.status==='needs_fix'?'<span class="tag bad">已退回</span>':''}${x.status==='approved'?'<span class="tag ok">已确认</span>':''}
+  ${x.status!=='approved'?`<button class="sm" data-rv="expense:${x.id}:needs_fix">退回修改</button>`:''}${x.status!=='approved'&&!x.incomplete?`<button class="sm" data-rv="expense:${x.id}:approved">确认</button>`:''}</div>
+  <div class="muted">${esc(x.reviewComment)}</div><div class="thumbs" data-x="${x.id}" style="margin-top:6px"></div></div>`).join(''):'<p class="muted">没有垫付记录</p>'}</div>`;
+ $('#back').onclick=home;if($('#rst'))$('#rst').onclick=async()=>{if(!confirm('重置后，'+d.name+' 的“已提交”状态会取消，可以重新修改并再次提交。确定吗？'))return;try{await api('/api/admin/submissions/reset',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({driverId:id})});toast('已重置');await home();detail(id)}catch(e){toast(e.message)}};
+ sh.sheets.forEach(async f=>{try{const u=await blobUrl(f.id);$('#sheets').insertAdjacentHTML('beforeend',`<a href="#" data-u="${u}"><img src="${u}"></a>`)}catch{}});
+ X.forEach(x=>x.attachments.forEach(async f=>{try{const u=await blobUrl(f.id);$(`[data-x="${x.id}"]`).insertAdjacentHTML('beforeend',`<a href="#" data-u="${u}"><img src="${u}"></a>`)}catch{}}));
+ document.onclick=e=>{const a=e.target.closest('a[data-u]');if(a){e.preventDefault();$('#view img').src=a.dataset.u;$('#view').style.display='flex'}};
+ document.querySelectorAll('[data-rv]').forEach(b=>b.onclick=async()=>{const [type,rid,status]=b.dataset.rv.split(':');let comment='';
+  if(status==='needs_fix'){comment=prompt('退回原因（司机会看到）：');if(!comment)return}
+  try{await api('/api/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,id:rid,status,comment})});toast('已处理');await home();detail(id)}catch(e){toast(e.message)}})}
+$('#view').onclick=()=>$('#view').style.display='none';
+// ---- 本地打包 ZIP（不压缩，按司机名分文件夹）----
+const CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+const crc32=b=>{let c=~0;for(let i=0;i<b.length;i++)c=CRC[(c^b[i])&255]^(c>>>8);return(~c)>>>0};
+
+function buildXlsx(sheets){
+ const X=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])).replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g,'');
+ const col=i=>{let s='';i++;while(i>0){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26)}return s};
+ const cell=(v,r,c,st)=>{const ref=col(c)+(r+1);if(typeof v==='number')return `<c r="${ref}" s="${st}"><v>${v}</v></c>`;return `<c r="${ref}" s="${st}" t="inlineStr"><is><t xml:space="preserve">${X(v)}</t></is></c>`};
+ const names=[];const files=[];
+ const used=new Set();
+ sheets.forEach((sh,k)=>{let nm=sh.name.replace(/[\[\]:*?\/\\]/g,'').slice(0,31)||('Sheet'+(k+1));while(used.has(nm))nm=nm.slice(0,28)+'_'+k;used.add(nm);names.push(nm);
+  const n=sh.head.length;const widths=sh.head.map((h,i)=>{let w=Math.max(h.length*2.2,10);for(const r of sh.rows.concat([sh.total]))w=Math.max(w,Math.min(40,String(r[i]==null?'':r[i]).length*1.9+2));return Math.round(w)});
+  let rows=`<row r="1" ht="24" customHeight="1">${sh.head.map((h,c)=>cell(h,0,c,1)).join('')}</row>`;
+  sh.rows.forEach((r,ri)=>{rows+=`<row r="${ri+2}">${r.map((v,c)=>cell(v,ri+1,c,(sh.yenCols||[]).includes(c)?3:0)).join('')}</row>`});
+  const tr=sh.rows.length+2;rows+=`<row r="${tr}">${sh.total.map((v,c)=>cell(v,tr-1,c,(sh.yenCols||[]).includes(c)?4:2)).join('')}</row>`;
+  const xml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"${k===0?' tabSelected="1"':''}><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="20"/><cols>${widths.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join('')}</cols><sheetData>${rows}</sheetData></worksheet>`;
+  files.push({name:`xl/worksheets/sheet${k+1}.xml`,data:new TextEncoder().encode(xml)})});
+ const E=s=>new TextEncoder().encode(s);const H='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+ const ns='http://schemas.openxmlformats.org/spreadsheetml/2006/main',rn='http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+ const bd='<border><left style="thin"><color rgb="FFBFBFBF"/></left><right style="thin"><color rgb="FFBFBFBF"/></right><top style="thin"><color rgb="FFBFBFBF"/></top><bottom style="thin"><color rgb="FFBFBFBF"/></bottom><diagonal/></border>';
+ const al='<alignment horizontal="center" vertical="center" wrapText="1"/>';
+ const styles=`${H}<styleSheet xmlns="${ns}"><numFmts count="1"><numFmt numFmtId="164" formatCode="&quot;¥&quot;#,##0"/></numFmts><fonts count="3"><font><sz val="11"/><name val="微软雅黑"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="微软雅黑"/></font><font><b/><sz val="11"/><name val="微软雅黑"/></font></fonts><fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF4472C4"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFD9E2F3"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>${bd}</borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="5"><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1">${al}</xf><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">${al}</xf><xf numFmtId="0" fontId="2" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">${al}</xf><xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1">${al}</xf><xf numFmtId="164" fontId="2" fillId="3" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">${al}</xf></cellXfs></styleSheet>`;
+ files.push({name:'[Content_Types].xml',data:E(`${H}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${names.map((_,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}</Types>`)});
+ files.push({name:'_rels/.rels',data:E(`${H}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${rn}/officeDocument" Target="xl/workbook.xml"/></Relationships>`)});
+ files.push({name:'xl/workbook.xml',data:E(`${H}<workbook xmlns="${ns}" xmlns:r="${rn}"><sheets>${names.map((n,i)=>`<sheet name="${X(n)}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join('')}</sheets></workbook>`)});
+ files.push({name:'xl/_rels/workbook.xml.rels',data:E(`${H}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${names.map((_,i)=>`<Relationship Id="rId${i+1}" Type="${rn}/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join('')}<Relationship Id="rId${names.length+1}" Type="${rn}/styles" Target="styles.xml"/></Relationships>`)});
+ files.push({name:'xl/styles.xml',data:E(styles)});
+ const z=buildZip(files);return z instanceof Blob?new Blob([z],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}):z}
+function buildZip(files){const enc=new TextEncoder(),parts=[],cen=[];let off=0;
+ for(const f of files){const nm=enc.encode(f.name),crc=crc32(f.data),sz=f.data.length;
+  const lh=new DataView(new ArrayBuffer(30));lh.setUint32(0,0x04034b50,true);lh.setUint16(4,20,true);lh.setUint16(6,0x0800,true);lh.setUint32(14,crc,true);lh.setUint32(18,sz,true);lh.setUint32(22,sz,true);lh.setUint16(26,nm.length,true);
+  parts.push(lh.buffer,nm,f.data);
+  const ch=new DataView(new ArrayBuffer(46));ch.setUint32(0,0x02014b50,true);ch.setUint16(4,20,true);ch.setUint16(6,20,true);ch.setUint16(8,0x0800,true);ch.setUint32(16,crc,true);ch.setUint32(20,sz,true);ch.setUint32(24,sz,true);ch.setUint16(28,nm.length,true);ch.setUint32(42,off,true);
+  cen.push(ch.buffer,nm);off+=30+nm.length+sz}
+ let cs=0;for(const c of cen)cs+=c.byteLength;const end=new DataView(new ArrayBuffer(22));end.setUint32(0,0x06054b50,true);end.setUint16(8,files.length,true);end.setUint16(10,files.length,true);end.setUint32(12,cs,true);end.setUint32(16,off,true);
+ return new Blob([...parts,...cen,end.buffer],{type:'application/zip'})}
+const extOf=t=>({'image/jpeg':'jpg','image/png':'png','image/webp':'webp','image/heic':'heic','application/pdf':'pdf'}[t]||'bin');
+async function makeZip(){const m=$('#zipmsg'),b=$('#zip');b.disabled=true;
+ try{const [en,ex,sh]=await Promise.all([api('/api/entries'),api('/api/expenses'),api('/api/sheets')]);
+  const jobs=[];const names=new Map(data.drivers.map(d=>[d.id,d.name]));
+  const cnt={};const nextN=k=>(cnt[k]=(cnt[k]||0)+1).toString().padStart(2,'0');
+  sh.sheets.forEach(f=>jobs.push({id:f.id,dir:`${f.driverName}/工作签字表`,base:`签字表`,key:f.driverId+'s'}));
+  ex.records.forEach(x=>x.attachments.forEach(a=>jobs.push({id:a.id,dir:`${x.driverName}/垫付票据`,base:`${x.date}_${x.category}`,key:x.driverId+x.date+x.category})));
+  const files=[];let i=0;
+  for(const j of jobs){m.textContent=`正在打包 ${++i} / ${jobs.length} …`;const r=await api('/api/files/'+j.id,{raw:true});const ct=r.headers.get('Content-Type');const data=new Uint8Array(await r.arrayBuffer());
+   files.push({name:`${j.dir}/${j.base}_${nextN(j.key)}.${extOf(ct)}`,data})}
+  if(!files.length){m.textContent='目前还没有任何原件可下载。';b.disabled=false;return}
+  save(buildZip(files),'亚运会司机原件.zip');m.textContent=`已打包 ${files.length} 个文件。`}
+ catch(e){m.textContent='打包失败：'+e.message}b.disabled=false}
+$('#out').onclick=()=>{sessionStorage.removeItem('kd-admin');tok=null;loginView()};
+tok?home():loginView();
+</script></body></html>
